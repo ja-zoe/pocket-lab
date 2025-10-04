@@ -369,10 +369,12 @@ const generateAICommentary = async (data) => {
   
   // If no API key is provided, fall back to rule-based commentary
   if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'demo-key') {
+    console.log('🔄 No API key provided, using rule-based commentary...');
     return generateFallbackCommentary(data);
   }
   
   try {
+    console.log('🤖 Attempting to generate AI commentary with Gemini...');
     const prompt = `You are a science teacher analyzing a student's sensor data experiment. Please provide a clear, educational commentary on the following experiment data:
 
 EXPERIMENT OVERVIEW:
@@ -397,13 +399,37 @@ Please provide:
 
 Keep the response concise (2-3 sentences) and educational, suitable for a high school science class.`;
 
-    const result = await model.generateContent(prompt);
+    // Add timeout and retry logic
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Request timeout after 15 seconds')), 15000)
+    );
+    
+    const apiPromise = model.generateContent(prompt);
+    const result = await Promise.race([apiPromise, timeoutPromise]);
     const response = await result.response;
-    return response.text();
+    const commentary = response.text();
+    
+    console.log('✅ Gemini API successful!');
+    return commentary;
+    
   } catch (error) {
-    console.error('Gemini API error:', error.message);
+    console.error('❌ Gemini API failed:', error.message);
+    
+    // Provide specific error guidance
+    if (error.message.includes('fetch failed') || error.message.includes('timeout')) {
+      console.log('🌐 Network issue detected. Possible causes:');
+      console.log('   • Corporate firewall blocking Google APIs');
+      console.log('   • Network connectivity problems');
+      console.log('   • DNS resolution issues');
+      console.log('   • Proxy configuration needed');
+      console.log('   • Try: nslookup generativelanguage.googleapis.com');
+    } else if (error.message.includes('404')) {
+      console.log('🔧 Model not found - check model name');
+    } else if (error.message.includes('403') || error.message.includes('401')) {
+      console.log('🔑 API key issue - check key validity');
+    }
+    
     console.log('🔄 Falling back to rule-based commentary...');
-    // Fall back to rule-based commentary if API fails
     return generateFallbackCommentary(data);
   }
 };

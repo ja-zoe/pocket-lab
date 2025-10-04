@@ -3,26 +3,40 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BMP280.h>
 #include <MPU6050.h>
-#include <Adafruit_HMC5883_U.h>   // Use for HMC5883L
-// #include <QMC5883LCompass.h>  // Uncomment if you use QMC5883L instead
 
-// I2C pins
+// ---- MAGNETOMETER: uncomment the one you really have ----
+#include <Adafruit_HMC5883_U.h>   // For genuine HMC5883L
+// #include <QMC5883LCompass.h>   // For QMC5883L clones
+
+// ---- ESP-IDF log control ----
+extern "C" {
+  #include "esp_log.h"
+}
+
+// I2C pins (adjust for your board!)
 #define SDA_PIN 5
 #define SCL_PIN 6
 
-// Sensor objects
-Adafruit_BMP280 bmp;
-MPU6050 mpu;
-Adafruit_HMC5883_Unified mag = Adafruit_HMC5883_Unified(12345);
-// QMC5883LCompass mag;   // use this line instead for QMC module
+// ---- Sensor objects ----
+Adafruit_BMP280 bmp;                  // BMP280
+MPU6050 mpu;                          // MPU6050
+Adafruit_HMC5883_Unified mag(12345);  // For HMC
+// QMC5883LCompass mag;               // For QMC
+
+// Pick the right BMP280 address after you scan
+#define BMP280_ADDR 0x77  // or 0x77
 
 void setup() {
   Serial.begin(115200);
+
+  // Suppress noisy ESP-IDF logs for I2C
+  esp_log_level_set("i2c.master", ESP_LOG_NONE);
+
   Wire.begin(SDA_PIN, SCL_PIN);
   delay(200);
 
   // ---- BMP280 ----
-  if (!bmp.begin(0x76) && !bmp.begin(0x77)) {
+  if (!bmp.begin(BMP280_ADDR)) {
     Serial.println("⚠️  BMP280 not detected!");
   } else {
     Serial.println("✅ BMP280 ready");
@@ -30,13 +44,20 @@ void setup() {
 
   // ---- MPU6050 ----
   mpu.initialize();
-  if (mpu.testConnection()) Serial.println("✅ MPU6050 ready");
-  else Serial.println("⚠️  MPU6050 not detected!");
+  if (mpu.testConnection()) {
+    Serial.println("✅ MPU6050 ready");
+  } else {
+    Serial.println("⚠️  MPU6050 not detected!");
+  }
 
   // ---- Magnetometer ----
-  if (mag.begin()) Serial.println("✅ Magnetometer ready");
-  else Serial.println("⚠️  Magnetometer not detected!");
-  // For QMC: mag.init();
+  if (mag.begin()) {
+    Serial.println("✅ Magnetometer ready");
+  } else {
+    Serial.println("⚠️  Magnetometer not detected!");
+  }
+  // For QMC:
+  // mag.init();
 }
 
 void loop() {
@@ -48,22 +69,25 @@ void loop() {
   int16_t ax, ay, az, gx, gy, gz;
   mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
 
-  // Convert raw accelerometer values to g (±2g scale)
   float ax_g = ax / 16384.0;
   float ay_g = ay / 16384.0;
   float az_g = az / 16384.0;
 
-  // Convert raw gyroscope values to degrees/sec (±250°/s scale)
   float gx_dps = gx / 131.0;
   float gy_dps = gy / 131.0;
   float gz_dps = gz / 131.0;
 
   // --- Read magnetometer ---
   sensors_event_t event;
-  mag.getEvent(&event);  // for QMC use mag.read(), mag.getX(), etc.
+  mag.getEvent(&event);        // for HMC
+  // mag.read();                // for QMC
+  // float mx = mag.getX();     // QMC accessors
+  // float my = mag.getY();
+  // float mz = mag.getZ();
 
   // --- Build JSON ---
   StaticJsonDocument<512> doc;
+
   doc["temperature_c"] = temperature;
   doc["pressure_hpa"] = pressure;
 
@@ -89,5 +113,5 @@ void loop() {
   serializeJson(doc, json);
   Serial.println(json);
 
-  delay(2000);  // new reading every 2 s
+  delay(500);
 }

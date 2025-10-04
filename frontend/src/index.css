@@ -43,27 +43,91 @@
 }
 
 @layer components {
-  .glow-border {
-    @apply border border-lab-teal/50 shadow-lg shadow-lab-teal/20;
-  }
-  
-  .glow-border:hover {
-    @apply shadow-xl shadow-lab-teal/40;
-  }
-  
+  /* Enhanced card styles with better shadows and borders */
   .card-glow {
-    @apply bg-card/50 backdrop-blur-sm border border-lab-teal/30 shadow-lg shadow-lab-teal/10;
+    @apply bg-lab-dark-alt/80 backdrop-blur-sm border border-lab-teal/30 shadow-card-lg hover:shadow-glow-teal transition-all duration-300 rounded-2xl;
   }
   
+  .card-glow:hover {
+    @apply border-lab-teal/50;
+  }
+  
+  /* Enhanced button styles with proper states */
   .btn-primary {
-    @apply bg-lab-teal hover:bg-lab-teal/90 text-lab-dark font-semibold px-6 py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl hover:shadow-lab-teal/25;
+    @apply bg-lab-green hover:bg-lab-green-light text-lab-dark font-semibold px-6 py-3 rounded-xl transition-all duration-200 shadow-lg hover:shadow-glow-green hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-lg;
   }
   
   .btn-secondary {
-    @apply bg-lab-green hover:bg-lab-green/90 text-lab-dark font-semibold px-6 py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl hover:shadow-lab-green/25;
+    @apply bg-lab-teal hover:bg-lab-teal-light text-lab-dark font-semibold px-6 py-3 rounded-xl transition-all duration-200 shadow-lg hover:shadow-glow-teal hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-lg;
   }
   
   .btn-danger {
-    @apply bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-3 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl hover:shadow-red-600/25;
+    @apply bg-lab-red hover:bg-lab-red-light text-white font-semibold px-6 py-3 rounded-xl transition-all duration-200 shadow-lg hover:shadow-glow-red hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-lg;
+  }
+  
+  /* Session status indicator */
+  .status-indicator {
+    @apply flex items-center space-x-2 px-3 py-2 rounded-lg bg-lab-dark-alt/50 border border-lab-teal/20;
+  }
+  
+  .status-dot {
+    @apply w-2 h-2 rounded-full animate-pulse;
+  }
+  
+  .status-dot.live {
+    @apply bg-lab-green shadow-glow-green;
+  }
+  
+  .status-dot.paused {
+    @apply bg-gray-500;
+  }
+  
+  /* Chart container styles */
+  .chart-container {
+    @apply bg-lab-dark-alt/30 rounded-xl p-4 border border-lab-teal/20 hover:border-lab-teal/40 transition-all duration-300;
+  }
+  
+  /* Loading states */
+  .loading-skeleton {
+    @apply animate-pulse bg-lab-dark-alt/50 rounded-lg;
+  }
+  
+  /* Toast notification styles */
+  .toast {
+    @apply fixed top-4 right-4 z-50 bg-lab-dark-alt border border-lab-teal/50 text-white px-6 py-4 rounded-xl shadow-glow-teal animate-slide-up;
+  }
+  
+  .toast.success {
+    @apply border-lab-green/50 shadow-glow-green;
+  }
+  
+  .toast.error {
+    @apply border-lab-red/50 shadow-glow-red;
+  }
+  
+  /* Responsive grid utilities */
+  .dashboard-grid {
+    @apply grid gap-6;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  }
+  
+  @media (max-width: 768px) {
+    .dashboard-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  
+  /* Graph axis labels */
+  .axis-label {
+    @apply text-sm text-gray-400 font-medium;
+  }
+  
+  /* Hover effects for interactive elements */
+  .hover-lift {
+    @apply transition-transform duration-200 hover:scale-105;
+  }
+  
+  .hover-glow {
+    @apply transition-shadow duration-200 hover:shadow-glow-teal;
   }
 }

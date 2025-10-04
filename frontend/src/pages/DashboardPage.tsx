@@ -15,7 +15,10 @@ import {
   Gauge,
   Wind,
   Eye,
-  Ruler
+  Ruler,
+  CheckCircle,
+  AlertCircle,
+  Clock
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import Gyroscope3D from '../components/Gyroscope3D';
@@ -54,8 +57,15 @@ const DashboardPage: React.FC = () => {
   const [isExperimentRunning, setIsExperimentRunning] = useState(false);
   const [sensorData, setSensorData] = useState<SensorData[]>([]);
   const [currentData, setCurrentData] = useState<SensorData | null>(null);
+  const [sessionId, setSessionId] = useState<string>('');
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  const [isLoading, setIsLoading] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const isRunningRef = useRef(false);
+  const maxDataPoints = 300; // Limit data points for smooth scrolling
 
   // Load initial data
   useEffect(() => {
@@ -101,9 +111,15 @@ const DashboardPage: React.FC = () => {
 
   const startExperiment = async () => {
     try {
+      setIsLoading(true);
       await mockSensorAPI.startExperiment();
       setIsExperimentRunning(true);
       isRunningRef.current = true;
+      
+      // Generate session ID and start time
+      const newSessionId = `session_${Date.now()}`;
+      setSessionId(newSessionId);
+      setSessionStartTime(new Date());
       
       // Connect to WebSocket for real-time data
       wsRef.current = createMockWebSocket((data) => {
@@ -133,11 +149,20 @@ const DashboardPage: React.FC = () => {
           };
           
           setCurrentData(newData);
-          setSensorData(prev => [...prev, newData]);
+          setSensorData(prev => {
+            const updated = [...prev, newData];
+            // Keep only last maxDataPoints for smooth scrolling
+            return updated.length > maxDataPoints ? updated.slice(-maxDataPoints) : updated;
+          });
         }
       });
+      
+      showToastNotification('Experiment started successfully!', 'success');
     } catch (error) {
       console.error('Failed to start experiment:', error);
+      showToastNotification('Failed to start experiment', 'error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -154,13 +179,17 @@ const DashboardPage: React.FC = () => {
       
       await mockSensorAPI.stopExperiment();
       setIsExperimentRunning(false);
+      setSessionId('');
+      setSessionStartTime(null);
       
+      showToastNotification('Experiment stopped successfully!', 'success');
       console.log('Experiment stopped - WebSocket closed and data processing halted');
     } catch (error) {
       console.error('Failed to stop experiment:', error);
       // Still set experiment as stopped even if API call fails
       isRunningRef.current = false;
       setIsExperimentRunning(false);
+      showToastNotification('Failed to stop experiment', 'error');
     }
   };
 
@@ -170,14 +199,28 @@ const DashboardPage: React.FC = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `lablink-experiment-${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `pocket-lab-experiment-${new Date().toISOString().split('T')[0]}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
+      
+      showToastNotification('CSV exported successfully!', 'success');
     } catch (error) {
       console.error('Failed to export CSV:', error);
+      showToastNotification('Failed to export CSV', 'error');
     }
+  };
+  
+  const showToastNotification = (message: string, type: 'success' | 'error') => {
+    setToastMessage(message);
+    setToastType(type);
+    setShowToast(true);
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+      setShowToast(false);
+    }, 3000);
   };
 
   const handleLogout = async () => {
@@ -198,7 +241,7 @@ const DashboardPage: React.FC = () => {
     };
   }, []);
 
-  // Prepare data for charts
+  // Prepare data for charts with better formatting
   const chartData = sensorData.map(data => ({
     time: new Date(data.timestamp).toLocaleTimeString(),
     temperature: data.temperature,
@@ -213,40 +256,80 @@ const DashboardPage: React.FC = () => {
     // Ultrasonic data
     distance: data.ultrasonic.distance,
   }));
+  
+  // Custom tooltip component for better styling
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-lab-dark-alt border border-lab-teal/50 rounded-lg p-3 shadow-glow-teal">
+          <p className="text-white font-medium mb-2">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <p key={index} className="text-sm" style={{ color: entry.color }}>
+              {entry.name}: {typeof entry.value === 'number' ? entry.value.toFixed(2) : entry.value}
+            </p>
+          ))}
+        </div>
+      );
+    }
+    return null;
+  };
+  
+  // Format session duration
+  const formatSessionDuration = () => {
+    if (!sessionStartTime) return '';
+    const duration = Date.now() - sessionStartTime.getTime();
+    const minutes = Math.floor(duration / 60000);
+    const seconds = Math.floor((duration % 60000) / 1000);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
 
   return (
     <div className="min-h-screen bg-lab-dark">
-      {/* Header */}
-      <header className="bg-gray-900/50 backdrop-blur-sm border-b border-lab-teal/30">
+      {/* Toast Notification */}
+      {showToast && (
+        <div className={`toast ${toastType}`}>
+          <div className="flex items-center space-x-2">
+            {toastType === 'success' ? (
+              <CheckCircle className="w-5 h-5 text-lab-green" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-lab-red" />
+            )}
+            <span>{toastMessage}</span>
+          </div>
+        </div>
+      )}
+      
+      {/* Enhanced Header */}
+      <header className="bg-lab-dark-alt/80 backdrop-blur-sm border-b border-lab-teal/30 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <FlaskConical className="w-8 h-8 text-lab-teal" />
+                <FlaskConical className="w-8 h-8 text-lab-teal hover:text-lab-teal-light transition-colors" />
                 <h1 className="text-2xl font-bold text-white">PocketLab</h1>
               </div>
-              <span className="text-sm text-gray-400">Live Experiment Dashboard</span>
+              <span className="text-sm text-gray-400 hidden sm:block">Live Experiment Dashboard</span>
             </div>
             
             <div className="flex items-center space-x-4">
               <Link
                 to="/history"
-                className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
+                className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors hover-lift"
               >
                 <History className="w-5 h-5" />
-                <span>History</span>
+                <span className="hidden sm:block">History</span>
               </Link>
               
               <div className="flex items-center space-x-2 text-gray-300">
-                <span className="text-sm">{user?.email}</span>
+                <span className="text-sm hidden sm:block">{user?.email}</span>
               </div>
               
               <button
                 onClick={handleLogout}
-                className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
+                className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors hover-lift"
               >
                 <LogOut className="w-5 h-5" />
-                <span>Logout</span>
+                <span className="hidden sm:block">Logout</span>
               </button>
             </div>
           </div>
@@ -255,53 +338,77 @@ const DashboardPage: React.FC = () => {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Control Panel */}
+        {/* Enhanced Control Panel */}
         <div className="mb-8">
-          <div className="card-glow rounded-2xl p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-6">
-                <div className="flex items-center space-x-2">
-                  <div className={`w-3 h-3 rounded-full ${isExperimentRunning ? 'bg-lab-green animate-pulse' : 'bg-gray-500'}`} />
+          <div className="card-glow p-6 animate-fade-in">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+              {/* Session Status Section */}
+              <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
+                <div className="status-indicator">
+                  <div className={`status-dot ${isExperimentRunning ? 'live' : 'paused'}`} />
                   <span className="text-white font-medium">
-                    {isExperimentRunning ? 'Experiment Running' : 'Experiment Stopped'}
+                    {isExperimentRunning ? 'Live' : 'Paused'}
                   </span>
+                  {sessionId && (
+                    <span className="text-xs text-gray-400 ml-2">
+                      {sessionId.slice(-8)}
+                    </span>
+                  )}
                 </div>
                 
+                {sessionStartTime && (
+                  <div className="flex items-center space-x-2 text-sm text-gray-300">
+                    <Clock className="w-4 h-4" />
+                    <span>Duration: {formatSessionDuration()}</span>
+                  </div>
+                )}
+                
                 {currentData && (
-                  <div className="flex items-center space-x-4 text-sm text-gray-300">
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-gray-300">
                     <div className="flex items-center space-x-1">
-                      <Thermometer className="w-4 h-4" />
+                      <Thermometer className="w-4 h-4 text-lab-blue" />
                       <span>{currentData.bme688.temperature.toFixed(1)}°C</span>
                     </div>
                     <div className="flex items-center space-x-1">
-                      <Droplets className="w-4 h-4" />
+                      <Droplets className="w-4 h-4 text-lab-cyan" />
                       <span>{currentData.bme688.humidity.toFixed(0)}%</span>
                     </div>
                     <div className="flex items-center space-x-1">
-                      <Gauge className="w-4 h-4" />
+                      <Gauge className="w-4 h-4 text-lab-purple" />
                       <span>{currentData.bme688.pressure.toFixed(0)}hPa</span>
                     </div>
                     <div className="flex items-center space-x-1">
-                      <Ruler className="w-4 h-4" />
+                      <Ruler className="w-4 h-4 text-lab-orange" />
                       <span>{currentData.ultrasonic.distance.toFixed(0)}cm</span>
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="flex items-center space-x-4">
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
                 {!isExperimentRunning ? (
                   <button
                     onClick={startExperiment}
-                    className="btn-primary flex items-center space-x-2"
+                    disabled={isLoading}
+                    className="btn-primary flex items-center justify-center space-x-2"
                   >
-                    <Play className="w-5 h-5" />
-                    <span>Start Experiment</span>
+                    {isLoading ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-lab-dark border-t-transparent rounded-full animate-spin" />
+                        <span>Starting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-5 h-5" />
+                        <span>Start Experiment</span>
+                      </>
+                    )}
                   </button>
                 ) : (
                   <button
                     onClick={stopExperiment}
-                    className="btn-danger flex items-center space-x-2"
+                    className="btn-danger flex items-center justify-center space-x-2"
                   >
                     <Square className="w-5 h-5" />
                     <span>Stop Experiment</span>
@@ -311,7 +418,7 @@ const DashboardPage: React.FC = () => {
                 <button
                   onClick={exportCSV}
                   disabled={sensorData.length === 0}
-                  className="btn-secondary flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="btn-secondary flex items-center justify-center space-x-2"
                 >
                   <Download className="w-5 h-5" />
                   <span>Export CSV</span>
@@ -322,73 +429,80 @@ const DashboardPage: React.FC = () => {
         </div>
 
         {/* Enhanced Charts Grid */}
-        <div className="space-y-8">
-          {/* Row 1: Environmental Conditions (BME688) */}
-          <div className="card-glow rounded-2xl p-6">
+        <div className="dashboard-grid">
+          {/* Environmental Conditions Chart */}
+          <div className="card-glow p-6 animate-slide-up">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
                 <Wind className="w-6 h-6 text-lab-teal" />
-                <span>Environmental Conditions (BME688)</span>
+                <span>Environmental Conditions</span>
               </h2>
               <div className="text-sm text-gray-400">
                 {sensorData.length} readings
               </div>
             </div>
             
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis 
-                    dataKey="time" 
-                    stroke="#9CA3AF"
-                    fontSize={12}
-                  />
-                  <YAxis 
-                    stroke="#9CA3AF"
-                    fontSize={12}
-                    label={{ value: 'Values', angle: -90, position: 'insideLeft' }}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#1F2937', 
-                      border: '1px solid #14B8A6',
-                      borderRadius: '8px',
-                      color: '#F9FAFB'
-                    }}
-                  />
-                  <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="bmeTemp" 
-                    stroke="#14B8A6" 
-                    strokeWidth={2}
-                    dot={false}
-                    name="Temperature (°C)"
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="humidity" 
-                    stroke="#3B82F6" 
-                    strokeWidth={2}
-                    dot={false}
-                    name="Humidity (%)"
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="pressure" 
-                    stroke="#8B5CF6" 
-                    strokeWidth={2}
-                    dot={false}
-                    name="Pressure (hPa)"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+            {chartData.length > 0 ? (
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis 
+                      dataKey="time" 
+                      stroke="#9CA3AF"
+                      fontSize={12}
+                      tick={{ fill: '#9CA3AF' }}
+                    />
+                    <YAxis 
+                      stroke="#9CA3AF"
+                      fontSize={12}
+                      tick={{ fill: '#9CA3AF' }}
+                      label={{ value: 'Values', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#9CA3AF' } }}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Line 
+                      type="monotone" 
+                      dataKey="bmeTemp" 
+                      stroke="#14b8a6" 
+                      strokeWidth={2}
+                      dot={false}
+                      name="Temperature (°C)"
+                      activeDot={{ r: 4, fill: '#14b8a6' }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="humidity" 
+                      stroke="#3b82f6" 
+                      strokeWidth={2}
+                      dot={false}
+                      name="Humidity (%)"
+                      activeDot={{ r: 4, fill: '#3b82f6' }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="pressure" 
+                      stroke="#a855f7" 
+                      strokeWidth={2}
+                      dot={false}
+                      name="Pressure (hPa)"
+                      activeDot={{ r: 4, fill: '#a855f7' }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-80 flex items-center justify-center text-gray-400">
+                <div className="text-center">
+                  <Wind className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Start experiment to see environmental data</p>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Row 2: Air Quality / VOC */}
-          <div className="card-glow rounded-2xl p-6">
+          {/* Air Quality / VOC Chart */}
+          <div className="card-glow p-6 animate-slide-up">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
                 <Eye className="w-6 h-6 text-lab-orange" />
@@ -399,47 +513,52 @@ const DashboardPage: React.FC = () => {
               </div>
             </div>
             
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis 
-                    dataKey="time" 
-                    stroke="#9CA3AF"
-                    fontSize={12}
-                  />
-                  <YAxis 
-                    stroke="#9CA3AF"
-                    fontSize={12}
-                    label={{ value: 'VOC Index', angle: -90, position: 'insideLeft' }}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#1F2937', 
-                      border: '1px solid #F97316',
-                      borderRadius: '8px',
-                      color: '#F9FAFB'
-                    }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="voc" 
-                    stroke="#F97316" 
-                    strokeWidth={3}
-                    dot={false}
-                    name="VOC Index"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+            {chartData.length > 0 ? (
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis 
+                      dataKey="time" 
+                      stroke="#9CA3AF"
+                      fontSize={12}
+                      tick={{ fill: '#9CA3AF' }}
+                    />
+                    <YAxis 
+                      stroke="#9CA3AF"
+                      fontSize={12}
+                      tick={{ fill: '#9CA3AF' }}
+                      label={{ value: 'VOC Index', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#9CA3AF' } }}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Line 
+                      type="monotone" 
+                      dataKey="voc" 
+                      stroke="#f97316" 
+                      strokeWidth={3}
+                      dot={false}
+                      name="VOC Index"
+                      activeDot={{ r: 5, fill: '#f97316' }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-80 flex items-center justify-center text-gray-400">
+                <div className="text-center">
+                  <Eye className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Start experiment to see VOC data</p>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Row 3: 3D Acceleration Visualization */}
-          <div className="card-glow rounded-2xl p-6">
+          {/* 3D Acceleration Visualization */}
+          <div className="card-glow p-6 animate-slide-up">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
                 <Activity className="w-6 h-6 text-lab-green" />
-                <span>3D Acceleration Visualization</span>
+                <span>3D Acceleration</span>
               </h2>
               <div className="text-sm text-gray-400">
                 Real-time 3D acceleration vector
@@ -462,12 +581,12 @@ const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Row 4: 3D Gyroscope Visualization */}
-          <div className="card-glow rounded-2xl p-6">
+          {/* 3D Gyroscope Visualization */}
+          <div className="card-glow p-6 animate-slide-up">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
                 <Activity className="w-6 h-6 text-lab-cyan" />
-                <span>3D Gyroscope Visualization</span>
+                <span>3D Gyroscope</span>
               </h2>
               <div className="text-sm text-gray-400">
                 Real-time 3D orientation
@@ -492,8 +611,8 @@ const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Row 5: Acceleration Time Series */}
-          <div className="card-glow rounded-2xl p-6">
+          {/* Acceleration Time Series */}
+          <div className="card-glow p-6 animate-slide-up">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
                 <Activity className="w-6 h-6 text-lab-orange" />
@@ -504,103 +623,115 @@ const DashboardPage: React.FC = () => {
               </div>
             </div>
             
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis 
-                    dataKey="time" 
-                    stroke="#9CA3AF"
-                    fontSize={12}
-                  />
-                  <YAxis 
-                    stroke="#9CA3AF"
-                    fontSize={12}
-                    label={{ value: 'g', angle: -90, position: 'insideLeft' }}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#1F2937', 
-                      border: '1px solid #F97316',
-                      borderRadius: '8px',
-                      color: '#F9FAFB'
-                    }}
-                  />
-                  <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="accelX" 
-                    stroke="#EF4444" 
-                    strokeWidth={2}
-                    dot={false}
-                    name="X-axis"
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="accelY" 
-                    stroke="#22C55E" 
-                    strokeWidth={2}
-                    dot={false}
-                    name="Y-axis"
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="accelZ" 
-                    stroke="#3B82F6" 
-                    strokeWidth={2}
-                    dot={false}
-                    name="Z-axis"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+            {chartData.length > 0 ? (
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis 
+                      dataKey="time" 
+                      stroke="#9CA3AF"
+                      fontSize={12}
+                      tick={{ fill: '#9CA3AF' }}
+                    />
+                    <YAxis 
+                      stroke="#9CA3AF"
+                      fontSize={12}
+                      tick={{ fill: '#9CA3AF' }}
+                      label={{ value: 'g', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#9CA3AF' } }}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Line 
+                      type="monotone" 
+                      dataKey="accelX" 
+                      stroke="#ef4444" 
+                      strokeWidth={2}
+                      dot={false}
+                      name="X-axis"
+                      activeDot={{ r: 4, fill: '#ef4444' }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="accelY" 
+                      stroke="#22c55e" 
+                      strokeWidth={2}
+                      dot={false}
+                      name="Y-axis"
+                      activeDot={{ r: 4, fill: '#22c55e' }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="accelZ" 
+                      stroke="#3b82f6" 
+                      strokeWidth={2}
+                      dot={false}
+                      name="Z-axis"
+                      activeDot={{ r: 4, fill: '#3b82f6' }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-80 flex items-center justify-center text-gray-400">
+                <div className="text-center">
+                  <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Start experiment to see acceleration data</p>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Row 6: Distance (Ultrasonic) */}
-          <div className="card-glow rounded-2xl p-6">
+          {/* Distance (Ultrasonic) Chart */}
+          <div className="card-glow p-6 animate-slide-up">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
                 <Ruler className="w-6 h-6 text-lab-purple" />
-                <span>Distance / Motion (Ultrasonic)</span>
+                <span>Distance / Motion</span>
               </h2>
               <div className="text-sm text-gray-400">
                 Object proximity detection
               </div>
             </div>
             
-            <div className="h-80">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis 
-                    dataKey="time" 
-                    stroke="#9CA3AF"
-                    fontSize={12}
-                  />
-                  <YAxis 
-                    stroke="#9CA3AF"
-                    fontSize={12}
-                    label={{ value: 'Distance (cm)', angle: -90, position: 'insideLeft' }}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#1F2937', 
-                      border: '1px solid #A855F7',
-                      borderRadius: '8px',
-                      color: '#F9FAFB'
-                    }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="distance" 
-                    stroke="#A855F7" 
-                    strokeWidth={3}
-                    dot={false}
-                    name="Distance (cm)"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
+            {chartData.length > 0 ? (
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis 
+                      dataKey="time" 
+                      stroke="#9CA3AF"
+                      fontSize={12}
+                      tick={{ fill: '#9CA3AF' }}
+                    />
+                    <YAxis 
+                      stroke="#9CA3AF"
+                      fontSize={12}
+                      tick={{ fill: '#9CA3AF' }}
+                      label={{ value: 'Distance (cm)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#9CA3AF' } }}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Line 
+                      type="monotone" 
+                      dataKey="distance" 
+                      stroke="#a855f7" 
+                      strokeWidth={3}
+                      dot={false}
+                      name="Distance (cm)"
+                      activeDot={{ r: 5, fill: '#a855f7' }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="h-80 flex items-center justify-center text-gray-400">
+                <div className="text-center">
+                  <Ruler className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Start experiment to see distance data</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </main>

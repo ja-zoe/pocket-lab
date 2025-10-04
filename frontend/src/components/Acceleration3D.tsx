@@ -226,7 +226,7 @@ const Acceleration3D: React.FC<Acceleration3DProps> = ({
   height = 400 
 }) => {
   return (
-    <div style={{ width, height }} className="border border-gray-600 rounded-lg overflow-hidden">
+    <div style={{ width, height }} className="border border-lab-teal/30 rounded-xl overflow-hidden hover:border-lab-teal/50 transition-all duration-300 shadow-lg hover:shadow-glow-teal">
       <Canvas
         camera={{ position: [8, 8, 8], fov: 50 }}
         style={{ background: 'transparent' }}

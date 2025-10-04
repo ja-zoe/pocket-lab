@@ -124,25 +124,38 @@ export const mockSensorAPI = {
   },
 
   async getLatestData() {
-    const response = await fetch(`${API_BASE_URL}/api/sensor-data/latest`);
-    if (!response.ok) throw new Error('Failed to fetch latest data');
-    return response.json();
+    // Mock latest data - simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 200));
+    return {
+      timestamp: Date.now(),
+      temperature: { value: 20 + Math.random() * 10 },
+      acceleration: {
+        x: (Math.random() - 0.5) * 2,
+        y: (Math.random() - 0.5) * 2,
+        z: (Math.random() - 0.5) * 2 + 1
+      },
+      bme688: {
+        temperature: 22 + Math.random() * 8,
+        humidity: 45 + Math.random() * 30,
+        pressure: 1010 + Math.random() * 20,
+        voc: 30 + Math.random() * 120
+      },
+      ultrasonic: {
+        distance: 20 + Math.random() * 150
+      }
+    };
   },
 
   async startExperiment() {
-    const response = await fetch(`${API_BASE_URL}/api/experiment/start`, {
-      method: 'POST',
-    });
-    if (!response.ok) throw new Error('Failed to start experiment');
-    return response.json();
+    // Mock experiment start - simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    return { success: true, message: 'Experiment started' };
   },
 
   async stopExperiment() {
-    const response = await fetch(`${API_BASE_URL}/api/experiment/stop`, {
-      method: 'POST',
-    });
-    if (!response.ok) throw new Error('Failed to stop experiment');
-    return response.json();
+    // Mock experiment stop - simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 300));
+    return { success: true, message: 'Experiment stopped' };
   },
 
   async exportCSV() {
@@ -176,26 +189,55 @@ export const mockSensorAPI = {
   }
 };
 
-// WebSocket connection for real-time data
+// Mock WebSocket connection for real-time data
 export const createMockWebSocket = (onMessage: (data: any) => void) => {
-  const ws = new WebSocket('ws://localhost:3001');
-  
-  ws.onopen = () => {
-    console.log('Connected to mock WebSocket');
+  // Create a mock WebSocket-like object
+  const mockWs = {
+    readyState: 1, // OPEN
+    close: () => {
+      if (mockWs.intervalId) {
+        clearInterval(mockWs.intervalId);
+        mockWs.intervalId = null;
+      }
+      console.log('Mock WebSocket closed');
+    },
+    intervalId: null as NodeJS.Timeout | null
   };
+
+  // Simulate WebSocket connection
+  console.log('Connected to mock WebSocket');
   
-  ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    onMessage(data);
-  };
-  
-  ws.onclose = () => {
-    console.log('Disconnected from mock WebSocket');
-  };
-  
-  ws.onerror = (error) => {
-    console.error('WebSocket error:', error);
-  };
-  
-  return ws;
+  // Start sending mock data every 2 seconds
+  mockWs.intervalId = setInterval(() => {
+    const mockData = {
+      type: 'sensor_update',
+      data: {
+        timestamp: Date.now(),
+        temperature: { value: 20 + Math.random() * 10 },
+        acceleration: {
+          x: (Math.random() - 0.5) * 2,
+          y: (Math.random() - 0.5) * 2,
+          z: (Math.random() - 0.5) * 2 + 1
+        },
+        gyroscope: {
+          pitch: (Math.random() - 0.5) * 180,
+          roll: (Math.random() - 0.5) * 180,
+          yaw: (Math.random() - 0.5) * 180
+        },
+        bme688: {
+          temperature: 22 + Math.random() * 8,
+          humidity: 45 + Math.random() * 30,
+          pressure: 1010 + Math.random() * 20,
+          voc: 30 + Math.random() * 120
+        },
+        ultrasonic: {
+          distance: 20 + Math.random() * 150
+        }
+      }
+    };
+    
+    onMessage(mockData);
+  }, 2000);
+
+  return mockWs as any;
 };

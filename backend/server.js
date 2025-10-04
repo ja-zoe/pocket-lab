@@ -176,6 +176,16 @@ app.get('/api/export/csv', (req, res) => {
   res.send(csvData);
 });
 
+// Experiment summary generation
+app.post('/api/experiment/summary', (req, res) => {
+  try {
+    const summary = generateExperimentSummary();
+    res.json(summary);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to generate experiment summary' });
+  }
+});
+
 // Generate CSV data
 const generateCSV = () => {
   const headers = 'Timestamp,Temperature (°C),Acceleration X (m/s²),Acceleration Y (m/s²),Acceleration Z (m/s²),BME Temperature (°C),BME Humidity (%),BME Pressure (hPa),BME VOC Index,Ultrasonic Distance (cm)\n';
@@ -190,6 +200,208 @@ const generateCSV = () => {
   }).join('\n');
   
   return headers + rows;
+};
+
+// Generate experiment summary with AI commentary
+const generateExperimentSummary = () => {
+  if (sensorData.temperature.length === 0) {
+    return {
+      duration: 0,
+      dataPoints: 0,
+      message: 'No data available for analysis'
+    };
+  }
+
+  const duration = Math.round((sensorData.temperature[sensorData.temperature.length - 1].timestamp - sensorData.temperature[0].timestamp) / 1000);
+  const dataPoints = sensorData.temperature.length;
+
+  // Calculate statistics for each sensor
+  const tempStats = calculateStats(sensorData.temperature.map(d => d.value));
+  const accelXStats = calculateStats(sensorData.acceleration.map(d => d.x));
+  const accelYStats = calculateStats(sensorData.acceleration.map(d => d.y));
+  const accelZStats = calculateStats(sensorData.acceleration.map(d => d.z));
+  const pressureStats = calculateStats(sensorData.bme688.map(d => d.pressure));
+  const humidityStats = calculateStats(sensorData.bme688.map(d => d.humidity));
+  const distanceStats = calculateStats(sensorData.ultrasonic.map(d => d.distance));
+
+  // Detect events
+  const events = detectEvents();
+  
+  // Generate AI commentary
+  const commentary = generateAICommentary({
+    tempStats,
+    accelXStats,
+    accelYStats,
+    accelZStats,
+    pressureStats,
+    humidityStats,
+    distanceStats,
+    events,
+    duration
+  });
+
+  return {
+    duration,
+    dataPoints,
+    timestamp: new Date().toISOString(),
+    statistics: {
+      temperature: {
+        min: tempStats.min,
+        max: tempStats.max,
+        avg: tempStats.avg,
+        change: tempStats.change,
+        unit: '°C'
+      },
+      acceleration: {
+        x: { min: accelXStats.min, max: accelXStats.max, avg: accelXStats.avg, unit: 'm/s²' },
+        y: { min: accelYStats.min, max: accelYStats.max, avg: accelYStats.avg, unit: 'm/s²' },
+        z: { min: accelZStats.min, max: accelZStats.max, avg: accelZStats.avg, unit: 'm/s²' }
+      },
+      pressure: {
+        min: pressureStats.min,
+        max: pressureStats.max,
+        avg: pressureStats.avg,
+        change: pressureStats.change,
+        unit: 'Pa'
+      },
+      humidity: {
+        min: humidityStats.min,
+        max: humidityStats.max,
+        avg: humidityStats.avg,
+        change: humidityStats.change,
+        unit: '%'
+      },
+      distance: {
+        min: distanceStats.min,
+        max: distanceStats.max,
+        avg: distanceStats.avg,
+        change: distanceStats.change,
+        unit: 'm'
+      }
+    },
+    events,
+    commentary,
+    dataQuality: {
+      anomalies: events.filter(e => e.type === 'spike').length,
+      motionEvents: events.filter(e => e.type === 'motion').length,
+      totalEvents: events.length
+    }
+  };
+};
+
+// Calculate basic statistics
+const calculateStats = (data) => {
+  if (data.length === 0) return { min: 0, max: 0, avg: 0, change: 0 };
+  
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const avg = data.reduce((a, b) => a + b, 0) / data.length;
+  const change = data[data.length - 1] - data[0];
+  
+  return { min, max, avg, change };
+};
+
+// Detect events in the data
+const detectEvents = () => {
+  const events = [];
+  
+  // Detect motion events (high acceleration variance)
+  const accelMagnitude = sensorData.acceleration.map(acc => 
+    Math.sqrt(acc.x * acc.x + acc.y * acc.y + acc.z * acc.z)
+  );
+  
+  const accelVariance = calculateVariance(accelMagnitude);
+  if (accelVariance > 50) { // Threshold for motion detection
+    events.push({
+      type: 'motion',
+      description: 'Significant motion detected',
+      timestamp: sensorData.temperature[Math.floor(sensorData.temperature.length / 2)].timestamp,
+      severity: accelVariance > 100 ? 'high' : 'medium'
+    });
+  }
+  
+  // Detect temperature spikes
+  const tempValues = sensorData.temperature.map(d => d.value);
+  for (let i = 1; i < tempValues.length - 1; i++) {
+    const change = Math.abs(tempValues[i] - tempValues[i-1]);
+    if (change > 5) { // Temperature spike threshold
+      events.push({
+        type: 'temperature_spike',
+        description: `Temperature spike: ${change.toFixed(1)}°C change`,
+        timestamp: sensorData.temperature[i].timestamp,
+        severity: change > 10 ? 'high' : 'medium'
+      });
+    }
+  }
+  
+  // Detect pressure changes
+  const pressureValues = sensorData.bme688.map(d => d.pressure);
+  const pressureChange = pressureValues[pressureValues.length - 1] - pressureValues[0];
+  if (Math.abs(pressureChange) > 1000) { // 10 hPa change
+    events.push({
+      type: 'pressure_change',
+      description: `Pressure change: ${(pressureChange/100).toFixed(1)} hPa`,
+      timestamp: sensorData.temperature[0].timestamp,
+      severity: Math.abs(pressureChange) > 2000 ? 'high' : 'medium'
+    });
+  }
+  
+  return events;
+};
+
+// Calculate variance
+const calculateVariance = (data) => {
+  const mean = data.reduce((a, b) => a + b, 0) / data.length;
+  const variance = data.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / data.length;
+  return variance;
+};
+
+// Generate AI commentary based on statistics and events
+const generateAICommentary = (data) => {
+  const { tempStats, pressureStats, humidityStats, events, duration } = data;
+  
+  let commentary = [];
+  
+  // Temperature analysis
+  if (Math.abs(tempStats.change) > 2) {
+    if (tempStats.change > 0) {
+      commentary.push(`Temperature increased steadily by ${tempStats.change.toFixed(1)}°C over the experiment duration.`);
+    } else {
+      commentary.push(`Temperature decreased by ${Math.abs(tempStats.change).toFixed(1)}°C during the experiment.`);
+    }
+  } else {
+    commentary.push(`Temperature remained relatively stable with minimal variation.`);
+  }
+  
+  // Pressure analysis
+  if (Math.abs(pressureStats.change) > 500) {
+    commentary.push(`Atmospheric pressure showed significant changes, indicating potential environmental variations.`);
+  } else {
+    commentary.push(`Pressure readings remained stable throughout the experiment.`);
+  }
+  
+  // Motion analysis
+  const motionEvents = events.filter(e => e.type === 'motion');
+  if (motionEvents.length > 0) {
+    commentary.push(`${motionEvents.length} motion event${motionEvents.length > 1 ? 's' : ''} detected, suggesting active movement or vibration.`);
+  } else {
+    commentary.push(`No significant motion events detected - experiment conducted in stable conditions.`);
+  }
+  
+  // Data quality
+  const anomalies = events.filter(e => e.type === 'temperature_spike').length;
+  if (anomalies > 0) {
+    commentary.push(`Data quality: ${anomalies} temperature anomaly${anomalies > 1 ? 'ies' : 'y'} detected during recording.`);
+  } else {
+    commentary.push(`Data quality: No significant anomalies detected - clean dataset.`);
+  }
+  
+  // Overall assessment
+  if (duration > 300) { // 5 minutes
+    commentary.push(`Extended experiment duration (${Math.round(duration/60)} minutes) provides robust data for analysis.`);
+  }
+  
+  return commentary.join(' ');
 };
 
 // Health check

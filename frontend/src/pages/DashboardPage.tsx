@@ -25,6 +25,7 @@ import Gyroscope3D from '../components/Gyroscope3D';
 import AccelerationCombined from '../components/AccelerationCombined';
 import BME688Chart from '../components/BME688Chart';
 import SpikeFilterControls from '../components/SpikeFilterControls';
+import ExperimentSummary from '../components/ExperimentSummary';
 import { useSimpleSpikeFilter } from '../hooks/useSimpleSpikeFilter';
 
 interface SensorData {
@@ -66,6 +67,8 @@ const DashboardPage: React.FC = () => {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error'>('success');
   const [isLoading, setIsLoading] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  const [experimentSummary, setExperimentSummary] = useState<any>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const isRunningRef = useRef(false);
   const maxDataPoints = 300; // Limit data points for smooth scrolling
@@ -181,6 +184,26 @@ const DashboardPage: React.FC = () => {
       }
       
       await mockSensorAPI.stopExperiment();
+      
+      // Generate experiment summary
+      try {
+        const response = await fetch('http://localhost:3001/api/experiment/summary', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (response.ok) {
+          const summary = await response.json();
+          setExperimentSummary(summary);
+          setShowSummary(true);
+        }
+      } catch (summaryError) {
+        console.error('Failed to generate summary:', summaryError);
+        // Continue with stopping experiment even if summary fails
+      }
+      
       setIsExperimentRunning(false);
       setSessionId('');
       setSessionStartTime(null);
@@ -213,6 +236,123 @@ const DashboardPage: React.FC = () => {
       console.error('Failed to export CSV:', error);
       showToastNotification('Failed to export CSV', 'error');
     }
+  };
+
+  const downloadSummaryCSV = () => {
+    if (!experimentSummary) return;
+    
+    const csvContent = generateSummaryCSV(experimentSummary);
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `experiment-summary-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    showToastNotification('Summary CSV exported successfully!', 'success');
+  };
+
+  const downloadSummaryPDF = () => {
+    if (!experimentSummary) return;
+    
+    // For now, we'll create a simple HTML report that can be printed as PDF
+    const htmlContent = generateSummaryHTML(experimentSummary);
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `experiment-summary-${new Date().toISOString().split('T')[0]}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    showToastNotification('Summary report exported successfully!', 'success');
+  };
+
+  const generateSummaryCSV = (summary: any) => {
+    const headers = [
+      'Metric',
+      'Min Value',
+      'Max Value', 
+      'Average Value',
+      'Change',
+      'Unit'
+    ].join(',');
+    
+    const rows = [
+      `Temperature,${summary.statistics.temperature.min},${summary.statistics.temperature.max},${summary.statistics.temperature.avg},${summary.statistics.temperature.change},${summary.statistics.temperature.unit}`,
+      `Pressure,${summary.statistics.pressure.min},${summary.statistics.pressure.max},${summary.statistics.pressure.avg},${summary.statistics.pressure.change},${summary.statistics.pressure.unit}`,
+      `Humidity,${summary.statistics.humidity.min},${summary.statistics.humidity.max},${summary.statistics.humidity.avg},${summary.statistics.humidity.change},${summary.statistics.humidity.unit}`,
+      `Distance,${summary.statistics.distance.min},${summary.statistics.distance.max},${summary.statistics.distance.avg},${summary.statistics.distance.change},${summary.statistics.distance.unit}`,
+      `Acceleration X,${summary.statistics.acceleration.x.min},${summary.statistics.acceleration.x.max},${summary.statistics.acceleration.x.avg},0,${summary.statistics.acceleration.x.unit}`,
+      `Acceleration Y,${summary.statistics.acceleration.y.min},${summary.statistics.acceleration.y.max},${summary.statistics.acceleration.y.avg},0,${summary.statistics.acceleration.y.unit}`,
+      `Acceleration Z,${summary.statistics.acceleration.z.min},${summary.statistics.acceleration.z.max},${summary.statistics.acceleration.z.avg},0,${summary.statistics.acceleration.z.unit}`
+    ];
+    
+    return [headers, ...rows].join('\n');
+  };
+
+  const generateSummaryHTML = (summary: any) => {
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Experiment Summary Report</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .section { margin-bottom: 20px; }
+        .stats-table { width: 100%; border-collapse: collapse; }
+        .stats-table th, .stats-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        .stats-table th { background-color: #f2f2f2; }
+        .commentary { background-color: #f9f9f9; padding: 15px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Experiment Summary Report</h1>
+        <p>Generated on: ${new Date().toLocaleString()}</p>
+    </div>
+    
+    <div class="section">
+        <h2>Overview</h2>
+        <p><strong>Duration:</strong> ${Math.floor(summary.duration / 60)}:${(summary.duration % 60).toString().padStart(2, '0')}</p>
+        <p><strong>Data Points:</strong> ${summary.dataPoints.toLocaleString()}</p>
+        <p><strong>Data Quality:</strong> ${summary.dataQuality.anomalies === 0 ? 'Clean' : `${summary.dataQuality.anomalies} anomalies detected`}</p>
+    </div>
+    
+    <div class="section">
+        <h2>Statistics</h2>
+        <table class="stats-table">
+            <tr><th>Metric</th><th>Min</th><th>Max</th><th>Average</th><th>Change</th><th>Unit</th></tr>
+            <tr><td>Temperature</td><td>${summary.statistics.temperature.min.toFixed(1)}</td><td>${summary.statistics.temperature.max.toFixed(1)}</td><td>${summary.statistics.temperature.avg.toFixed(1)}</td><td>${summary.statistics.temperature.change.toFixed(1)}</td><td>${summary.statistics.temperature.unit}</td></tr>
+            <tr><td>Pressure</td><td>${(summary.statistics.pressure.min/100).toFixed(1)}</td><td>${(summary.statistics.pressure.max/100).toFixed(1)}</td><td>${(summary.statistics.pressure.avg/100).toFixed(1)}</td><td>${(summary.statistics.pressure.change/100).toFixed(1)}</td><td>hPa</td></tr>
+            <tr><td>Humidity</td><td>${summary.statistics.humidity.min.toFixed(1)}</td><td>${summary.statistics.humidity.max.toFixed(1)}</td><td>${summary.statistics.humidity.avg.toFixed(1)}</td><td>${summary.statistics.humidity.change.toFixed(1)}</td><td>${summary.statistics.humidity.unit}</td></tr>
+            <tr><td>Distance</td><td>${summary.statistics.distance.min.toFixed(2)}</td><td>${summary.statistics.distance.max.toFixed(2)}</td><td>${summary.statistics.distance.avg.toFixed(2)}</td><td>${summary.statistics.distance.change.toFixed(2)}</td><td>${summary.statistics.distance.unit}</td></tr>
+        </table>
+    </div>
+    
+    <div class="section">
+        <h2>AI Analysis</h2>
+        <div class="commentary">
+            ${summary.commentary}
+        </div>
+    </div>
+    
+    ${summary.events.length > 0 ? `
+    <div class="section">
+        <h2>Detected Events</h2>
+        <ul>
+            ${summary.events.map((event: any) => `<li>${event.description} (${new Date(event.timestamp).toLocaleTimeString()})</li>`).join('')}
+        </ul>
+    </div>
+    ` : ''}
+</body>
+</html>`;
   };
 
   const exportRawData = () => {
@@ -779,6 +919,16 @@ const DashboardPage: React.FC = () => {
           </div>
         </div>
       </main>
+
+      {/* Experiment Summary Modal */}
+      {showSummary && experimentSummary && (
+        <ExperimentSummary
+          summary={experimentSummary}
+          onDownloadCSV={downloadSummaryCSV}
+          onDownloadPDF={downloadSummaryPDF}
+          onClose={() => setShowSummary(false)}
+        />
+      )}
     </div>
   );
 };

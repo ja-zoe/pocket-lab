@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const app = express();
 const PORT = 3001;
@@ -9,6 +10,10 @@ const PORT = 3001;
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Initialize Gemini AI
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'demo-key');
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 // Mock user data
 const mockUsers = [
@@ -177,11 +182,12 @@ app.get('/api/export/csv', (req, res) => {
 });
 
 // Experiment summary generation
-app.post('/api/experiment/summary', (req, res) => {
+app.post('/api/experiment/summary', async (req, res) => {
   try {
-    const summary = generateExperimentSummary();
+    const summary = await generateExperimentSummary();
     res.json(summary);
   } catch (error) {
+    console.error('Summary generation error:', error);
     res.status(500).json({ error: 'Failed to generate experiment summary' });
   }
 });
@@ -203,7 +209,7 @@ const generateCSV = () => {
 };
 
 // Generate experiment summary with AI commentary
-const generateExperimentSummary = () => {
+const generateExperimentSummary = async () => {
   if (sensorData.temperature.length === 0) {
     return {
       duration: 0,
@@ -228,7 +234,7 @@ const generateExperimentSummary = () => {
   const events = detectEvents();
   
   // Generate AI commentary
-  const commentary = generateAICommentary({
+  const commentary = await generateAICommentary({
     tempStats,
     accelXStats,
     accelYStats,
@@ -237,7 +243,8 @@ const generateExperimentSummary = () => {
     humidityStats,
     distanceStats,
     events,
-    duration
+    duration,
+    dataPoints
   });
 
   return {
@@ -356,8 +363,53 @@ const calculateVariance = (data) => {
   return variance;
 };
 
-// Generate AI commentary based on statistics and events
-const generateAICommentary = (data) => {
+// Generate AI commentary using Gemini API
+const generateAICommentary = async (data) => {
+  const { tempStats, pressureStats, humidityStats, distanceStats, accelXStats, accelYStats, accelZStats, events, duration } = data;
+  
+  // If no API key is provided, fall back to rule-based commentary
+  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === 'demo-key') {
+    return generateFallbackCommentary(data);
+  }
+  
+  try {
+    const prompt = `You are a science teacher analyzing a student's sensor data experiment. Please provide a clear, educational commentary on the following experiment data:
+
+EXPERIMENT OVERVIEW:
+- Duration: ${Math.floor(duration / 60)} minutes ${duration % 60} seconds
+- Data Points: ${data.dataPoints || 'N/A'}
+
+SENSOR DATA:
+Temperature: ${tempStats.min.toFixed(1)}°C to ${tempStats.max.toFixed(1)}°C (avg: ${tempStats.avg.toFixed(1)}°C, change: ${tempStats.change > 0 ? '+' : ''}${tempStats.change.toFixed(1)}°C)
+Pressure: ${(pressureStats.min/100).toFixed(1)} to ${(pressureStats.max/100).toFixed(1)} hPa (avg: ${(pressureStats.avg/100).toFixed(1)} hPa, change: ${(pressureStats.change/100).toFixed(1)} hPa)
+Humidity: ${humidityStats.min.toFixed(1)}% to ${humidityStats.max.toFixed(1)}% (avg: ${humidityStats.avg.toFixed(1)}%, change: ${humidityStats.change > 0 ? '+' : ''}${humidityStats.change.toFixed(1)}%)
+Distance: ${distanceStats.min.toFixed(2)}m to ${distanceStats.max.toFixed(2)}m (avg: ${distanceStats.avg.toFixed(2)}m, change: ${distanceStats.change > 0 ? '+' : ''}${distanceStats.change.toFixed(2)}m)
+Acceleration: X=${accelXStats.avg.toFixed(1)} m/s², Y=${accelYStats.avg.toFixed(1)} m/s², Z=${accelZStats.avg.toFixed(1)} m/s²
+
+DETECTED EVENTS:
+${events.length > 0 ? events.map(e => `- ${e.description} (${e.severity} severity)`).join('\n') : 'No significant events detected'}
+
+Please provide:
+1. A brief analysis of the key trends and patterns
+2. What the data suggests about the experimental conditions
+3. Any notable observations or anomalies
+4. Educational insights for the student
+
+Keep the response concise (2-3 sentences) and educational, suitable for a high school science class.`;
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    return response.text();
+  } catch (error) {
+    console.error('Gemini API error:', error.message);
+    console.log('🔄 Falling back to rule-based commentary...');
+    // Fall back to rule-based commentary if API fails
+    return generateFallbackCommentary(data);
+  }
+};
+
+// Fallback rule-based commentary
+const generateFallbackCommentary = (data) => {
   const { tempStats, pressureStats, humidityStats, events, duration } = data;
   
   let commentary = [];

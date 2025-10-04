@@ -24,6 +24,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import Gyroscope3D from '../components/Gyroscope3D';
 import Acceleration3D from '../components/Acceleration3D';
 import BME688Chart from '../components/BME688Chart';
+import SpikeFilterControls from '../components/SpikeFilterControls';
+import { useSimpleSpikeFilter } from '../hooks/useSimpleSpikeFilter';
 
 interface SensorData {
   timestamp: number;
@@ -212,6 +214,114 @@ const DashboardPage: React.FC = () => {
       showToastNotification('Failed to export CSV', 'error');
     }
   };
+
+  const exportRawData = () => {
+    try {
+      const csvContent = generateCSV(rawChartData, 'raw');
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pocket-lab-raw-data-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      showToastNotification('Raw data exported successfully!', 'success');
+    } catch (error) {
+      console.error('Raw export failed:', error);
+      showToastNotification('Raw export failed', 'error');
+    }
+  };
+
+  const exportCleanData = () => {
+    try {
+      const csvContent = generateCSV(chartData, 'clean');
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pocket-lab-clean-data-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      showToastNotification('Clean data exported successfully!', 'success');
+    } catch (error) {
+      console.error('Clean export failed:', error);
+      showToastNotification('Clean export failed', 'error');
+    }
+  };
+
+  const generateCSV = (data: any[], type: 'raw' | 'clean') => {
+    if (data.length === 0) return '';
+    
+    const headers = [
+      'Timestamp',
+      'Time',
+      'Temperature (°C)',
+      'Acceleration X (g)',
+      'Acceleration Y (g)',
+      'Acceleration Z (g)',
+      'BME688 Temperature (°C)',
+      'Humidity (%)',
+      'Pressure (hPa)',
+      'VOC Index',
+      'Distance (cm)'
+    ];
+
+    if (type === 'clean') {
+      headers.push(
+        'Temperature Spike',
+        'AccelX Spike',
+        'AccelY Spike',
+        'AccelZ Spike',
+        'BME688 Temp Spike',
+        'Humidity Spike',
+        'Pressure Spike',
+        'VOC Spike',
+        'Distance Spike'
+      );
+    }
+
+    const csvRows = [headers.join(',')];
+    
+    data.forEach(point => {
+      const row = [
+        point.time,
+        point.timeString,
+        point.temperature,
+        point.accelX,
+        point.accelY,
+        point.accelZ,
+        point.bmeTemp,
+        point.humidity,
+        point.pressure,
+        point.voc,
+        point.distance
+      ];
+
+      if (type === 'clean' && point.spikesDetected) {
+        row.push(
+          point.spikesDetected.temperature,
+          point.spikesDetected.accelX,
+          point.spikesDetected.accelY,
+          point.spikesDetected.accelZ,
+          point.spikesDetected.bmeTemp,
+          point.spikesDetected.humidity,
+          point.spikesDetected.pressure,
+          point.spikesDetected.voc,
+          point.spikesDetected.distance
+        );
+      }
+
+      csvRows.push(row.join(','));
+    });
+
+    return csvRows.join('\n');
+  };
   
   const showToastNotification = (message: string, type: 'success' | 'error') => {
     setToastMessage(message);
@@ -242,8 +352,8 @@ const DashboardPage: React.FC = () => {
     };
   }, []);
 
-  // Prepare data for charts with better formatting
-  const chartData = sensorData.map(data => ({
+  // Prepare raw data for charts
+  const rawChartData = sensorData.map(data => ({
     time: data.timestamp, // Keep original timestamp
     timeString: new Date(data.timestamp).toLocaleTimeString(), // For display
     temperature: data.temperature,
@@ -258,6 +368,20 @@ const DashboardPage: React.FC = () => {
     // Ultrasonic data
     distance: data.ultrasonic.distance,
   }));
+
+  // Apply spike filtering
+  const {
+    displayData: chartData,
+    showClean,
+    setShowClean,
+    spikeStats,
+    filterOptions,
+    updateFilterOptions
+  } = useSimpleSpikeFilter(rawChartData, {
+    windowSize: 10,
+    threshold: 2,
+    enabled: true
+  });
   
   // Custom tooltip component for better styling
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -429,6 +553,19 @@ const DashboardPage: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Spike Filter Controls */}
+        <SpikeFilterControls
+          showClean={showClean}
+          setShowClean={setShowClean}
+          spikeStats={spikeStats}
+          onExportRaw={exportRawData}
+          onExportClean={exportCleanData}
+          windowSize={filterOptions.windowSize}
+          threshold={filterOptions.threshold}
+          onWindowSizeChange={(size) => updateFilterOptions({ windowSize: size })}
+          onThresholdChange={(threshold) => updateFilterOptions({ threshold })}
+        />
 
         {/* Enhanced Charts Grid */}
         <div className="dashboard-grid">

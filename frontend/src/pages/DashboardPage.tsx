@@ -10,7 +10,12 @@ import {
   LogOut,
   History,
   Thermometer,
-  Activity
+  Activity,
+  Droplets,
+  Gauge,
+  Wind,
+  Eye,
+  Ruler
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
@@ -21,6 +26,17 @@ interface SensorData {
     x: number;
     y: number;
     z: number;
+  };
+  // BME688 Environmental Sensor Data
+  bme688: {
+    temperature: number;
+    humidity: number;
+    pressure: number;
+    voc: number;
+  };
+  // Ultrasonic Distance Sensor Data
+  ultrasonic: {
+    distance: number;
   };
 }
 
@@ -44,6 +60,15 @@ const DashboardPage: React.FC = () => {
             x: data.acceleration[index].x,
             y: data.acceleration[index].y,
             z: data.acceleration[index].z,
+          },
+          bme688: {
+            temperature: data.bme688?.[index]?.temperature || 25 + Math.random() * 5,
+            humidity: data.bme688?.[index]?.humidity || 40 + Math.random() * 20,
+            pressure: data.bme688?.[index]?.pressure || 1013 + Math.random() * 10,
+            voc: data.bme688?.[index]?.voc || 50 + Math.random() * 100,
+          },
+          ultrasonic: {
+            distance: data.ultrasonic?.[index]?.distance || 50 + Math.random() * 100,
           }
         }));
         setSensorData(formattedData);
@@ -75,6 +100,15 @@ const DashboardPage: React.FC = () => {
               x: data.data.acceleration.x,
               y: data.data.acceleration.y,
               z: data.data.acceleration.z,
+            },
+            bme688: {
+              temperature: data.data.bme688?.temperature || 25 + Math.random() * 5,
+              humidity: data.data.bme688?.humidity || 40 + Math.random() * 20,
+              pressure: data.data.bme688?.pressure || 1013 + Math.random() * 10,
+              voc: data.data.bme688?.voc || 50 + Math.random() * 100,
+            },
+            ultrasonic: {
+              distance: data.data.ultrasonic?.distance || 50 + Math.random() * 100,
             }
           };
           
@@ -142,6 +176,13 @@ const DashboardPage: React.FC = () => {
     accelX: data.acceleration.x,
     accelY: data.acceleration.y,
     accelZ: data.acceleration.z,
+    // BME688 data
+    bmeTemp: data.bme688.temperature,
+    humidity: data.bme688.humidity,
+    pressure: data.bme688.pressure,
+    voc: data.bme688.voc,
+    // Ultrasonic data
+    distance: data.ultrasonic.distance,
   }));
 
   return (
@@ -201,11 +242,19 @@ const DashboardPage: React.FC = () => {
                   <div className="flex items-center space-x-4 text-sm text-gray-300">
                     <div className="flex items-center space-x-1">
                       <Thermometer className="w-4 h-4" />
-                      <span>{currentData.temperature.toFixed(1)}°C</span>
+                      <span>{currentData.bme688.temperature.toFixed(1)}°C</span>
                     </div>
                     <div className="flex items-center space-x-1">
-                      <Activity className="w-4 h-4" />
-                      <span>X:{currentData.acceleration.x.toFixed(2)}</span>
+                      <Droplets className="w-4 h-4" />
+                      <span>{currentData.bme688.humidity.toFixed(0)}%</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <Gauge className="w-4 h-4" />
+                      <span>{currentData.bme688.pressure.toFixed(0)}hPa</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <Ruler className="w-4 h-4" />
+                      <span>{currentData.ultrasonic.distance.toFixed(0)}cm</span>
                     </div>
                   </div>
                 )}
@@ -243,14 +292,14 @@ const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Temperature Chart */}
+        {/* Enhanced Charts Grid */}
+        <div className="space-y-8">
+          {/* Row 1: Environmental Conditions (BME688) */}
           <div className="card-glow rounded-2xl p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
-                <Thermometer className="w-6 h-6 text-lab-teal" />
-                <span>Temperature</span>
+                <Wind className="w-6 h-6 text-lab-teal" />
+                <span>Environmental Conditions (BME688)</span>
               </h2>
               <div className="text-sm text-gray-400">
                 {sensorData.length} readings
@@ -269,7 +318,7 @@ const DashboardPage: React.FC = () => {
                   <YAxis 
                     stroke="#9CA3AF"
                     fontSize={12}
-                    label={{ value: '°C', angle: -90, position: 'insideLeft' }}
+                    label={{ value: 'Values', angle: -90, position: 'insideLeft' }}
                   />
                   <Tooltip 
                     contentStyle={{ 
@@ -279,28 +328,92 @@ const DashboardPage: React.FC = () => {
                       color: '#F9FAFB'
                     }}
                   />
+                  <Legend />
                   <Line 
                     type="monotone" 
-                    dataKey="temperature" 
+                    dataKey="bmeTemp" 
                     stroke="#14B8A6" 
                     strokeWidth={2}
                     dot={false}
-                    name="Temperature"
+                    name="Temperature (°C)"
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="humidity" 
+                    stroke="#3B82F6" 
+                    strokeWidth={2}
+                    dot={false}
+                    name="Humidity (%)"
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="pressure" 
+                    stroke="#8B5CF6" 
+                    strokeWidth={2}
+                    dot={false}
+                    name="Pressure (hPa)"
                   />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Acceleration Chart */}
+          {/* Row 2: Air Quality / VOC */}
+          <div className="card-glow rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
+                <Eye className="w-6 h-6 text-lab-orange" />
+                <span>Air Quality / VOC</span>
+              </h2>
+              <div className="text-sm text-gray-400">
+                BME688 VOC Index
+              </div>
+            </div>
+            
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis 
+                    dataKey="time" 
+                    stroke="#9CA3AF"
+                    fontSize={12}
+                  />
+                  <YAxis 
+                    stroke="#9CA3AF"
+                    fontSize={12}
+                    label={{ value: 'VOC Index', angle: -90, position: 'insideLeft' }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#1F2937', 
+                      border: '1px solid #F97316',
+                      borderRadius: '8px',
+                      color: '#F9FAFB'
+                    }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="voc" 
+                    stroke="#F97316" 
+                    strokeWidth={3}
+                    dot={false}
+                    name="VOC Index"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Row 3: Acceleration / Gyroscope */}
           <div className="card-glow rounded-2xl p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
                 <Activity className="w-6 h-6 text-lab-green" />
-                <span>Acceleration</span>
+                <span>Acceleration (3-Axis IMU)</span>
               </h2>
               <div className="text-sm text-gray-400">
-                3-axis IMU data
+                3-axis accelerometer data
               </div>
             </div>
             
@@ -350,6 +463,53 @@ const DashboardPage: React.FC = () => {
                     strokeWidth={2}
                     dot={false}
                     name="Z-axis"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Row 4: Distance (Ultrasonic) */}
+          <div className="card-glow rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
+                <Ruler className="w-6 h-6 text-lab-purple" />
+                <span>Distance / Motion (Ultrasonic)</span>
+              </h2>
+              <div className="text-sm text-gray-400">
+                Object proximity detection
+              </div>
+            </div>
+            
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis 
+                    dataKey="time" 
+                    stroke="#9CA3AF"
+                    fontSize={12}
+                  />
+                  <YAxis 
+                    stroke="#9CA3AF"
+                    fontSize={12}
+                    label={{ value: 'Distance (cm)', angle: -90, position: 'insideLeft' }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#1F2937', 
+                      border: '1px solid #A855F7',
+                      borderRadius: '8px',
+                      color: '#F9FAFB'
+                    }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="distance" 
+                    stroke="#A855F7" 
+                    strokeWidth={3}
+                    dot={false}
+                    name="Distance (cm)"
                   />
                 </LineChart>
               </ResponsiveContainer>

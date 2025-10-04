@@ -24,6 +24,7 @@ const mockUsers = [
 let sensorData = {
   temperature: [],
   acceleration: [],
+  gyroscope: [],
   bme688: [],
   ultrasonic: [],
   timestamp: []
@@ -49,6 +50,15 @@ const generateMockData = () => {
       y: Math.cos(i * 0.15) * 1.5 + Math.random() * 0.3,
       z: 9.8 + Math.sin(i * 0.1) * 0.5 + Math.random() * 0.2,
       unit: 'm/s²'
+    });
+    
+    // Gyroscope data (Euler angles in degrees)
+    sensorData.gyroscope.push({
+      timestamp,
+      pitch: Math.sin(i * 0.1) * 45 + Math.random() * 10, // X-axis rotation
+      roll: Math.cos(i * 0.08) * 30 + Math.random() * 8,   // Y-axis rotation
+      yaw: Math.sin(i * 0.12) * 60 + Math.random() * 15,   // Z-axis rotation
+      unit: 'degrees'
     });
     
     // BME688 Environmental Sensor Data
@@ -118,6 +128,7 @@ app.get('/api/sensor-data', (req, res) => {
   res.json({
     temperature: sensorData.temperature.slice(-100), // Last 100 points
     acceleration: sensorData.acceleration.slice(-100),
+    gyroscope: sensorData.gyroscope.slice(-100),
     bme688: sensorData.bme688.slice(-100),
     ultrasonic: sensorData.ultrasonic.slice(-100),
     timestamp: sensorData.timestamp.slice(-100)
@@ -128,6 +139,7 @@ app.get('/api/sensor-data/latest', (req, res) => {
   const latest = {
     temperature: sensorData.temperature[sensorData.temperature.length - 1],
     acceleration: sensorData.acceleration[sensorData.acceleration.length - 1],
+    gyroscope: sensorData.gyroscope[sensorData.gyroscope.length - 1],
     bme688: sensorData.bme688[sensorData.bme688.length - 1],
     ultrasonic: sensorData.ultrasonic[sensorData.ultrasonic.length - 1],
     timestamp: Date.now()
@@ -256,6 +268,15 @@ wss.on('connection', (ws) => {
       unit: 'm/s²'
     };
     
+    // Generate new gyroscope data
+    const newGyro = {
+      timestamp: now,
+      pitch: Math.sin(now * 0.001) * 45 + Math.random() * 10,
+      roll: Math.cos(now * 0.0008) * 30 + Math.random() * 8,
+      yaw: Math.sin(now * 0.0012) * 60 + Math.random() * 15,
+      unit: 'degrees'
+    };
+    
     // Generate new BME688 data
     const newBME = {
       timestamp: now,
@@ -276,6 +297,7 @@ wss.on('connection', (ws) => {
     // Add to data arrays
     sensorData.temperature.push(newTemp);
     sensorData.acceleration.push(newAcc);
+    sensorData.gyroscope.push(newGyro);
     sensorData.bme688.push(newBME);
     sensorData.ultrasonic.push(newUltrasonic);
     sensorData.timestamp.push(now);
@@ -284,6 +306,7 @@ wss.on('connection', (ws) => {
     if (sensorData.temperature.length > 1000) {
       sensorData.temperature.shift();
       sensorData.acceleration.shift();
+      sensorData.gyroscope.shift();
       sensorData.bme688.shift();
       sensorData.ultrasonic.shift();
       sensorData.timestamp.shift();
@@ -296,6 +319,7 @@ wss.on('connection', (ws) => {
         data: {
           temperature: newTemp,
           acceleration: newAcc,
+          gyroscope: newGyro,
           bme688: newBME,
           ultrasonic: newUltrasonic,
           timestamp: now

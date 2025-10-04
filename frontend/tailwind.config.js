@@ -54,6 +54,7 @@ export default {
           green: "#22c55e", // light green accent
           orange: "#f97316", // orange for VOC
           purple: "#a855f7", // purple for distance
+          cyan: "#06b6d4", // cyan for gyroscope
         }
       },
       borderRadius: {

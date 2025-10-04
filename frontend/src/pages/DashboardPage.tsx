@@ -18,6 +18,7 @@ import {
   Ruler
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import Gyroscope3D from '../components/Gyroscope3D';
 
 interface SensorData {
   timestamp: number;
@@ -26,6 +27,12 @@ interface SensorData {
     x: number;
     y: number;
     z: number;
+  };
+  // Gyroscope data (Euler angles in degrees)
+  gyroscope: {
+    pitch: number;  // X-axis rotation
+    roll: number;   // Y-axis rotation
+    yaw: number;    // Z-axis rotation
   };
   // BME688 Environmental Sensor Data
   bme688: {
@@ -60,6 +67,11 @@ const DashboardPage: React.FC = () => {
             x: data.acceleration[index].x,
             y: data.acceleration[index].y,
             z: data.acceleration[index].z,
+          },
+          gyroscope: {
+            pitch: data.gyroscope?.[index]?.pitch || (Math.random() - 0.5) * 180,
+            roll: data.gyroscope?.[index]?.roll || (Math.random() - 0.5) * 180,
+            yaw: data.gyroscope?.[index]?.yaw || (Math.random() - 0.5) * 180,
           },
           bme688: {
             temperature: data.bme688?.[index]?.temperature || 25 + Math.random() * 5,
@@ -100,6 +112,11 @@ const DashboardPage: React.FC = () => {
               x: data.data.acceleration.x,
               y: data.data.acceleration.y,
               z: data.data.acceleration.z,
+            },
+            gyroscope: {
+              pitch: data.data.gyroscope?.pitch || (Math.random() - 0.5) * 180,
+              roll: data.data.gyroscope?.roll || (Math.random() - 0.5) * 180,
+              yaw: data.data.gyroscope?.yaw || (Math.random() - 0.5) * 180,
             },
             bme688: {
               temperature: data.data.bme688?.temperature || 25 + Math.random() * 5,
@@ -469,7 +486,37 @@ const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Row 4: Distance (Ultrasonic) */}
+          {/* Row 4: 3D Gyroscope Visualization */}
+          <div className="card-glow rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
+                <Activity className="w-6 h-6 text-lab-cyan" />
+                <span>3D Gyroscope Visualization</span>
+              </h2>
+              <div className="text-sm text-gray-400">
+                Real-time 3D orientation
+              </div>
+            </div>
+            
+            <div className="h-80 flex items-center justify-center">
+              {currentData ? (
+                <Gyroscope3D 
+                  pitch={currentData.gyroscope.pitch}
+                  roll={currentData.gyroscope.roll}
+                  yaw={currentData.gyroscope.yaw}
+                  width={600}
+                  height={300}
+                />
+              ) : (
+                <div className="text-gray-400 text-center">
+                  <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Start experiment to see 3D gyroscope data</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Row 5: Distance (Ultrasonic) */}
           <div className="card-glow rounded-2xl p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">

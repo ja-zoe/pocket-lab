@@ -23,6 +23,7 @@ import {
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import Gyroscope3D from '../components/Gyroscope3D';
 import Acceleration3D from '../components/Acceleration3D';
+import BME688Chart from '../components/BME688Chart';
 
 interface SensorData {
   timestamp: number;
@@ -430,75 +431,19 @@ const DashboardPage: React.FC = () => {
 
         {/* Enhanced Charts Grid */}
         <div className="dashboard-grid">
-          {/* Environmental Conditions Chart */}
-          <div className="card-glow p-6 animate-slide-up">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
-                <Wind className="w-6 h-6 text-lab-teal" />
-                <span>Environmental Conditions</span>
-              </h2>
-              <div className="text-sm text-gray-400">
-                {sensorData.length} readings
-              </div>
-            </div>
-            
-            {chartData.length > 0 ? (
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                    <XAxis 
-                      dataKey="time" 
-                      stroke="#9CA3AF"
-                      fontSize={12}
-                      tick={{ fill: '#9CA3AF' }}
-                    />
-                    <YAxis 
-                      stroke="#9CA3AF"
-                      fontSize={12}
-                      tick={{ fill: '#9CA3AF' }}
-                      label={{ value: 'Values', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#9CA3AF' } }}
-                    />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend />
-                    <Line 
-                      type="monotone" 
-                      dataKey="bmeTemp" 
-                      stroke="#14b8a6" 
-                      strokeWidth={2}
-                      dot={false}
-                      name="Temperature (°C)"
-                      activeDot={{ r: 4, fill: '#14b8a6' }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="humidity" 
-                      stroke="#3b82f6" 
-                      strokeWidth={2}
-                      dot={false}
-                      name="Humidity (%)"
-                      activeDot={{ r: 4, fill: '#3b82f6' }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="pressure" 
-                      stroke="#a855f7" 
-                      strokeWidth={2}
-                      dot={false}
-                      name="Pressure (hPa)"
-                      activeDot={{ r: 4, fill: '#a855f7' }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="h-80 flex items-center justify-center text-gray-400">
-                <div className="text-center">
-                  <Wind className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Start experiment to see environmental data</p>
-                </div>
-              </div>
-            )}
+          {/* BME688 Environmental Data Chart with Dropdown */}
+          <div className="animate-slide-up">
+            <BME688Chart 
+              data={sensorData.map(data => ({
+                timestamp: data.timestamp,
+                temperature: data.bme688.temperature,
+                humidity: data.bme688.humidity,
+                pressure: data.bme688.pressure,
+                voc: data.bme688.voc
+              }))}
+              width={600}
+              height={400}
+            />
           </div>
 
           {/* Air Quality / VOC Chart */}
@@ -529,6 +474,8 @@ const DashboardPage: React.FC = () => {
                       fontSize={12}
                       tick={{ fill: '#9CA3AF' }}
                       label={{ value: 'VOC Index', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#9CA3AF' } }}
+                      domain={['dataMin - 10', 'dataMax + 10']}
+                      allowDataOverflow={false}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Line 
@@ -639,6 +586,8 @@ const DashboardPage: React.FC = () => {
                       fontSize={12}
                       tick={{ fill: '#9CA3AF' }}
                       label={{ value: 'g', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#9CA3AF' } }}
+                      domain={['dataMin - 0.5', 'dataMax + 0.5']}
+                      allowDataOverflow={false}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend />
@@ -710,6 +659,8 @@ const DashboardPage: React.FC = () => {
                       fontSize={12}
                       tick={{ fill: '#9CA3AF' }}
                       label={{ value: 'Distance (cm)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#9CA3AF' } }}
+                      domain={['dataMin - 5', 'dataMax + 5']}
+                      allowDataOverflow={false}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Line 

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import Gyroscope3D from '../components/Gyroscope3D';
+import Acceleration3D from '../components/Acceleration3D';
 
 interface SensorData {
   timestamp: number;
@@ -433,15 +434,73 @@ const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Row 3: Acceleration / Gyroscope */}
+          {/* Row 3: 3D Acceleration Visualization */}
           <div className="card-glow rounded-2xl p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
                 <Activity className="w-6 h-6 text-lab-green" />
-                <span>Acceleration (3-Axis IMU)</span>
+                <span>3D Acceleration Visualization</span>
               </h2>
               <div className="text-sm text-gray-400">
-                3-axis accelerometer data
+                Real-time 3D acceleration vector
+              </div>
+            </div>
+            
+            <div className="h-80 flex items-center justify-center">
+              {currentData ? (
+                <Acceleration3D 
+                  acceleration={currentData.acceleration}
+                  width={600}
+                  height={300}
+                />
+              ) : (
+                <div className="text-gray-400 text-center">
+                  <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Start experiment to see 3D acceleration data</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Row 4: 3D Gyroscope Visualization */}
+          <div className="card-glow rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
+                <Activity className="w-6 h-6 text-lab-cyan" />
+                <span>3D Gyroscope Visualization</span>
+              </h2>
+              <div className="text-sm text-gray-400">
+                Real-time 3D orientation
+              </div>
+            </div>
+            
+            <div className="h-80 flex items-center justify-center">
+              {currentData ? (
+                <Gyroscope3D 
+                  pitch={currentData.gyroscope.pitch}
+                  roll={currentData.gyroscope.roll}
+                  yaw={currentData.gyroscope.yaw}
+                  width={600}
+                  height={300}
+                />
+              ) : (
+                <div className="text-gray-400 text-center">
+                  <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>Start experiment to see 3D gyroscope data</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Row 5: Acceleration Time Series */}
+          <div className="card-glow rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
+                <Activity className="w-6 h-6 text-lab-orange" />
+                <span>Acceleration Time Series</span>
+              </h2>
+              <div className="text-sm text-gray-400">
+                3-axis accelerometer data over time
               </div>
             </div>
             
@@ -462,7 +521,7 @@ const DashboardPage: React.FC = () => {
                   <Tooltip 
                     contentStyle={{ 
                       backgroundColor: '#1F2937', 
-                      border: '1px solid #22C55E',
+                      border: '1px solid #F97316',
                       borderRadius: '8px',
                       color: '#F9FAFB'
                     }}
@@ -497,37 +556,7 @@ const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Row 4: 3D Gyroscope Visualization */}
-          <div className="card-glow rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
-                <Activity className="w-6 h-6 text-lab-cyan" />
-                <span>3D Gyroscope Visualization</span>
-              </h2>
-              <div className="text-sm text-gray-400">
-                Real-time 3D orientation
-              </div>
-            </div>
-            
-            <div className="h-80 flex items-center justify-center">
-              {currentData ? (
-                <Gyroscope3D 
-                  pitch={currentData.gyroscope.pitch}
-                  roll={currentData.gyroscope.roll}
-                  yaw={currentData.gyroscope.yaw}
-                  width={600}
-                  height={300}
-                />
-              ) : (
-                <div className="text-gray-400 text-center">
-                  <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Start experiment to see 3D gyroscope data</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Row 5: Distance (Ultrasonic) */}
+          {/* Row 6: Distance (Ultrasonic) */}
           <div className="card-glow rounded-2xl p-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">

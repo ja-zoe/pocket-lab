@@ -54,7 +54,7 @@ const BME688Chart: React.FC<BME688ChartProps> = ({
     pressure: {
       key: 'pressure',
       label: 'Pressure',
-      unit: 'hPa',
+      unit: 'Pa',
       color: '#8b5cf6',
       icon: <Wind className="w-4 h-4" />,
       description: 'Atmospheric pressure from BME688 sensor'
@@ -111,7 +111,7 @@ const BME688Chart: React.FC<BME688ChartProps> = ({
           >
             <option value="temperature" className="bg-gray-700 text-white">Temperature (°C)</option>
             <option value="humidity" className="bg-gray-700 text-white">Humidity (%)</option>
-            <option value="pressure" className="bg-gray-700 text-white">Pressure (hPa)</option>
+            <option value="pressure" className="bg-gray-700 text-white">Pressure (Pa)</option>
           </select>
           <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
             <div className="p-1 bg-teal-500/20 rounded-full">

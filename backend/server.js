@@ -46,19 +46,19 @@ const generateMockData = () => {
     
     sensorData.acceleration.push({
       timestamp,
-      x: Math.sin(i * 0.2) * 2 + Math.random() * 0.5,
-      y: Math.cos(i * 0.15) * 1.5 + Math.random() * 0.3,
-      z: 9.8 + Math.sin(i * 0.1) * 0.5 + Math.random() * 0.2,
+      x: (Math.sin(i * 0.2) * 2 + Math.random() * 0.5) * 9.81, // Convert g to m/s²
+      y: (Math.cos(i * 0.15) * 1.5 + Math.random() * 0.3) * 9.81, // Convert g to m/s²
+      z: (1 + Math.sin(i * 0.1) * 0.5 + Math.random() * 0.2) * 9.81, // Convert g to m/s²
       unit: 'm/s²'
     });
     
-    // Gyroscope data (Euler angles in degrees)
+    // Gyroscope data (Euler angles in radians)
     sensorData.gyroscope.push({
       timestamp,
-      pitch: Math.sin(i * 0.1) * 45 + Math.random() * 10, // X-axis rotation
-      roll: Math.cos(i * 0.08) * 30 + Math.random() * 8,   // Y-axis rotation
-      yaw: Math.sin(i * 0.12) * 60 + Math.random() * 15,   // Z-axis rotation
-      unit: 'degrees'
+      pitch: (Math.sin(i * 0.1) * 45 + Math.random() * 10) * Math.PI / 180, // X-axis rotation in rad
+      roll: (Math.cos(i * 0.08) * 30 + Math.random() * 8) * Math.PI / 180,   // Y-axis rotation in rad
+      yaw: (Math.sin(i * 0.12) * 60 + Math.random() * 15) * Math.PI / 180,   // Z-axis rotation in rad
+      unit: 'rad'
     });
     
     // BME688 Environmental Sensor Data
@@ -66,7 +66,7 @@ const generateMockData = () => {
       timestamp,
       temperature: 22 + Math.sin(i * 0.08) * 6 + Math.random() * 2, // 22°C ± 6°C
       humidity: 50 + Math.sin(i * 0.05) * 20 + Math.random() * 5, // 50% ± 20%
-      pressure: 1013 + Math.sin(i * 0.03) * 10 + Math.random() * 2, // 1013 hPa ± 10
+      pressure: (1013 + Math.sin(i * 0.03) * 10 + Math.random() * 2) * 100, // 101300 Pa ± 1000
       voc: 50 + Math.sin(i * 0.1) * 30 + Math.random() * 20, // VOC index 50 ± 30
       unit: 'mixed'
     });
@@ -74,8 +74,8 @@ const generateMockData = () => {
     // Ultrasonic Distance Sensor Data
     sensorData.ultrasonic.push({
       timestamp,
-      distance: 50 + Math.sin(i * 0.15) * 40 + Math.random() * 10, // 50cm ± 40cm
-      unit: 'cm'
+      distance: (50 + Math.sin(i * 0.15) * 40 + Math.random() * 10) / 100, // 0.5m ± 0.4m
+      unit: 'm'
     });
     
     sensorData.timestamp.push(timestamp);
@@ -262,19 +262,19 @@ wss.on('connection', (ws) => {
     
     const newAcc = {
       timestamp: now,
-      x: Math.sin(now * 0.002) * 2 + Math.random() * 0.5,
-      y: Math.cos(now * 0.0015) * 1.5 + Math.random() * 0.3,
-      z: 9.8 + Math.sin(now * 0.001) * 0.5 + Math.random() * 0.2,
+      x: (Math.sin(now * 0.002) * 2 + Math.random() * 0.5) * 9.81, // Convert g to m/s²
+      y: (Math.cos(now * 0.0015) * 1.5 + Math.random() * 0.3) * 9.81, // Convert g to m/s²
+      z: (1 + Math.sin(now * 0.001) * 0.5 + Math.random() * 0.2) * 9.81, // Convert g to m/s²
       unit: 'm/s²'
     };
     
     // Generate new gyroscope data
     const newGyro = {
       timestamp: now,
-      pitch: Math.sin(now * 0.001) * 45 + Math.random() * 10,
-      roll: Math.cos(now * 0.0008) * 30 + Math.random() * 8,
-      yaw: Math.sin(now * 0.0012) * 60 + Math.random() * 15,
-      unit: 'degrees'
+      pitch: (Math.sin(now * 0.001) * 45 + Math.random() * 10) * Math.PI / 180, // Convert to rad
+      roll: (Math.cos(now * 0.0008) * 30 + Math.random() * 8) * Math.PI / 180,   // Convert to rad
+      yaw: (Math.sin(now * 0.0012) * 60 + Math.random() * 15) * Math.PI / 180,   // Convert to rad
+      unit: 'rad'
     };
     
     // Generate new BME688 data
@@ -282,7 +282,7 @@ wss.on('connection', (ws) => {
       timestamp: now,
       temperature: 22 + Math.sin(now * 0.0008) * 6 + Math.random() * 2,
       humidity: 50 + Math.sin(now * 0.0005) * 20 + Math.random() * 5,
-      pressure: 1013 + Math.sin(now * 0.0003) * 10 + Math.random() * 2,
+      pressure: (1013 + Math.sin(now * 0.0003) * 10 + Math.random() * 2) * 100, // Convert hPa to Pa
       voc: 50 + Math.sin(now * 0.001) * 30 + Math.random() * 20,
       unit: 'mixed'
     };
@@ -290,8 +290,8 @@ wss.on('connection', (ws) => {
     // Generate new ultrasonic data
     const newUltrasonic = {
       timestamp: now,
-      distance: 50 + Math.sin(now * 0.0015) * 40 + Math.random() * 10,
-      unit: 'cm'
+      distance: (50 + Math.sin(now * 0.0015) * 40 + Math.random() * 10) / 100, // Convert cm to m
+      unit: 'm'
     };
     
     // Add to data arrays

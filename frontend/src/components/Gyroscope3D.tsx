@@ -4,9 +4,9 @@ import { OrbitControls, Text } from '@react-three/drei';
 import * as THREE from 'three';
 
 interface Gyroscope3DProps {
-  pitch: number; // X-axis rotation (pitch_deg)
-  roll: number;  // Z-axis rotation (roll_deg) 
-  yaw: number;   // Y-axis rotation (yaw_deg)
+  pitch: number; // X-axis rotation (pitch_rad)
+  roll: number;  // Z-axis rotation (roll_rad) 
+  yaw: number;   // Y-axis rotation (yaw_rad)
   width?: number;
   height?: number;
 }
@@ -23,14 +23,14 @@ const RotatingCube: React.FC<{ pitch: number; roll: number; yaw: number }> = ({
   useFrame((state, delta) => {
     if (meshRef.current) {
       // MPU6050 rotation mapping with YXZ rotation order
-      // roll_deg → Z-axis rotation
-      // pitch_deg → X-axis rotation  
-      // yaw_deg → Y-axis rotation
+      // roll_rad → Z-axis rotation
+      // pitch_rad → X-axis rotation  
+      // yaw_rad → Y-axis rotation
       
-      // Convert degrees to radians
-      const pitchRad = THREE.MathUtils.degToRad(pitch);
-      const rollRad = THREE.MathUtils.degToRad(roll);
-      const yawRad = THREE.MathUtils.degToRad(yaw);
+      // Values are already in radians
+      const pitchRad = pitch;
+      const rollRad = roll;
+      const yawRad = yaw;
       
       // Update target rotation
       targetRotation.current.x = pitchRad;
@@ -153,7 +153,7 @@ const AxisLabels: React.FC<{ pitch: number; roll: number; yaw: number }> = ({
         anchorX="center"
         anchorY="middle"
       >
-        Pitch: {pitch.toFixed(1)}° (X)
+        Pitch: {pitch.toFixed(3)} rad (X)
       </Text>
       
       {/* Yaw label (Y-axis) */}
@@ -164,7 +164,7 @@ const AxisLabels: React.FC<{ pitch: number; roll: number; yaw: number }> = ({
         anchorX="center"
         anchorY="middle"
       >
-        Yaw: {yaw.toFixed(1)}° (Y)
+        Yaw: {yaw.toFixed(3)} rad (Y)
       </Text>
       
       {/* Roll label (Z-axis) */}
@@ -175,7 +175,7 @@ const AxisLabels: React.FC<{ pitch: number; roll: number; yaw: number }> = ({
         anchorX="center"
         anchorY="middle"
       >
-        Roll: {roll.toFixed(1)}° (Z)
+        Roll: {roll.toFixed(3)} rad (Z)
       </Text>
     </group>
   );

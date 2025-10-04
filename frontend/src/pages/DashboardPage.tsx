@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import Gyroscope3D from '../components/Gyroscope3D';
-import Acceleration3D from '../components/Acceleration3D';
+import AccelerationCombined from '../components/AccelerationCombined';
 import BME688Chart from '../components/BME688Chart';
 import SpikeFilterControls from '../components/SpikeFilterControls';
 import { useSimpleSpikeFilter } from '../hooks/useSimpleSpikeFilter';
@@ -262,14 +262,14 @@ const DashboardPage: React.FC = () => {
       'Timestamp',
       'Time',
       'Temperature (°C)',
-      'Acceleration X (g)',
-      'Acceleration Y (g)',
-      'Acceleration Z (g)',
+      'Acceleration X (m/s²)',
+      'Acceleration Y (m/s²)',
+      'Acceleration Z (m/s²)',
       'BME688 Temperature (°C)',
       'Humidity (%)',
-      'Pressure (hPa)',
+      'Pressure (Pa)',
       'VOC Index',
-      'Distance (cm)'
+      'Distance (m)'
     ];
 
     if (type === 'clean') {
@@ -660,32 +660,13 @@ const DashboardPage: React.FC = () => {
             )}
           </div>
 
-          {/* 3D Acceleration Visualization */}
-          <div className="card-glow p-6 animate-fade-in">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
-                <Activity className="w-6 h-6 text-green-500" />
-                <span>3D Acceleration</span>
-              </h2>
-              <div className="text-sm text-gray-400">
-                Real-time 3D acceleration vector
-              </div>
-            </div>
-            
-            <div className="h-80 flex items-center justify-center">
-              {currentData ? (
-                <Acceleration3D 
-                  acceleration={currentData.acceleration}
-                  width={600}
-                  height={300}
-                />
-              ) : (
-                <div className="text-gray-400 text-center">
-                  <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Start experiment to see 3D acceleration data</p>
-                </div>
-              )}
-            </div>
+          {/* Combined Acceleration Data */}
+          <div className="animate-fade-in">
+            <AccelerationCombined 
+              data={chartData}
+              width={600}
+              height={300}
+            />
           </div>
 
           {/* 3D Gyroscope Visualization */}
@@ -718,99 +699,6 @@ const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Acceleration Time Series */}
-          <div className="card-glow p-6 animate-fade-in">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
-                <Activity className="w-6 h-6 text-orange-500" />
-                <span>Acceleration Time Series</span>
-              </h2>
-              <div className="text-sm text-gray-400">
-                3-axis accelerometer data over time
-              </div>
-            </div>
-            
-            {chartData.length > 0 ? (
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData} margin={{ top: 20, right: 30, left: 30, bottom: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                    <XAxis 
-                      dataKey="time" 
-                      stroke="#9CA3AF"
-                      fontSize={10}
-                      tick={{ fill: '#9CA3AF', fontSize: 10 }}
-                      tickLine={{ stroke: '#9CA3AF' }}
-                      axisLine={{ stroke: '#9CA3AF' }}
-                      interval="preserveStartEnd"
-                      tickFormatter={(value) => {
-                        if (!value || isNaN(value)) return '';
-                        const date = new Date(value);
-                        if (isNaN(date.getTime())) return '';
-                        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                      }}
-                    />
-                    <YAxis 
-                      stroke="#9CA3AF"
-                      fontSize={9}
-                      tick={{ fill: '#9CA3AF', fontSize: 9 }}
-                      tickLine={{ stroke: '#9CA3AF' }}
-                      axisLine={{ stroke: '#9CA3AF' }}
-                      width={50}
-                      label={{ 
-                        value: 'g', 
-                        angle: -90, 
-                        position: 'insideLeft', 
-                        style: { textAnchor: 'middle', fill: '#9CA3AF', fontSize: 10 } 
-                      }}
-                      domain={['dataMin - 0.5', 'dataMax + 0.5']}
-                      allowDataOverflow={false}
-                      tickCount={5}
-                      tickFormatter={(value) => {
-                        return value.toPrecision(3);
-                      }}
-                    />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend />
-                    <Line 
-                      type="monotone" 
-                      dataKey="accelX" 
-                      stroke="#ef4444" 
-                      strokeWidth={2}
-                      dot={false}
-                      name="X-axis"
-                      activeDot={{ r: 4, fill: '#ef4444' }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="accelY" 
-                      stroke="#22c55e" 
-                      strokeWidth={2}
-                      dot={false}
-                      name="Y-axis"
-                      activeDot={{ r: 4, fill: '#22c55e' }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="accelZ" 
-                      stroke="#3b82f6" 
-                      strokeWidth={2}
-                      dot={false}
-                      name="Z-axis"
-                      activeDot={{ r: 4, fill: '#3b82f6' }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="h-80 flex items-center justify-center text-gray-400">
-                <div className="text-center">
-                  <Activity className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Start experiment to see acceleration data</p>
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* Distance (Ultrasonic) Chart */}
           <div className="card-glow p-6 animate-fade-in">
@@ -852,7 +740,7 @@ const DashboardPage: React.FC = () => {
                       axisLine={{ stroke: '#9CA3AF' }}
                       width={50}
                       label={{ 
-                        value: 'Distance (cm)', 
+                        value: 'Distance (m)', 
                         angle: -90, 
                         position: 'insideLeft', 
                         style: { textAnchor: 'middle', fill: '#9CA3AF', fontSize: 10 } 
@@ -874,7 +762,7 @@ const DashboardPage: React.FC = () => {
                       stroke="#a855f7" 
                       strokeWidth={3}
                       dot={false}
-                      name="Distance (cm)"
+                      name="Distance (m)"
                       activeDot={{ r: 5, fill: '#a855f7' }}
                     />
                   </LineChart>

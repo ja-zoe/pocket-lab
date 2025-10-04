@@ -7,8 +7,8 @@
 // #include <QMC5883LCompass.h>  // Uncomment if you use QMC5883L instead
 
 // I2C pins
-#define SDA_PIN 21
-#define SCL_PIN 22
+#define SDA_PIN 5
+#define SCL_PIN 6
 
 // Sensor objects
 Adafruit_BMP280 bmp;
@@ -44,29 +44,47 @@ void loop() {
   float temperature = bmp.readTemperature();         // °C
   float pressure = bmp.readPressure() / 100.0F;      // hPa
 
-  // --- Read MPU6050 accelerometer ---
-  int16_t ax, ay, az;
-  mpu.getAcceleration(&ax, &ay, &az);
+  // --- Read MPU6050 accelerometer & gyroscope ---
+  int16_t ax, ay, az, gx, gy, gz;
+  mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+
+  // Convert raw accelerometer values to g (±2g scale)
   float ax_g = ax / 16384.0;
   float ay_g = ay / 16384.0;
   float az_g = az / 16384.0;
+
+  // Convert raw gyroscope values to degrees/sec (±250°/s scale)
+  float gx_dps = gx / 131.0;
+  float gy_dps = gy / 131.0;
+  float gz_dps = gz / 131.0;
 
   // --- Read magnetometer ---
   sensors_event_t event;
   mag.getEvent(&event);  // for QMC use mag.read(), mag.getX(), etc.
 
   // --- Build JSON ---
-  StaticJsonDocument<256> doc;
+  StaticJsonDocument<512> doc;
   doc["temperature_c"] = temperature;
   doc["pressure_hpa"] = pressure;
-  doc["accel_g"]["x"] = ax_g;
-  doc["accel_g"]["y"] = ay_g;
-  doc["accel_g"]["z"] = az_g;
-  doc["mag_uT"]["x"] = event.magnetic.x;
-  doc["mag_uT"]["y"] = event.magnetic.y;
-  doc["mag_uT"]["z"] = event.magnetic.z;
+
+  JsonObject accel = doc.createNestedObject("accel_g");
+  accel["x"] = ax_g;
+  accel["y"] = ay_g;
+  accel["z"] = az_g;
+
+  JsonObject gyro = doc.createNestedObject("gyro_dps");
+  gyro["x"] = gx_dps;
+  gyro["y"] = gy_dps;
+  gyro["z"] = gz_dps;
+
+  JsonObject magField = doc.createNestedObject("mag_uT");
+  magField["x"] = event.magnetic.x;
+  magField["y"] = event.magnetic.y;
+  magField["z"] = event.magnetic.z;
+
   doc["timestamp_ms"] = millis();
 
+  // --- Print JSON ---
   String json;
   serializeJson(doc, json);
   Serial.println(json);

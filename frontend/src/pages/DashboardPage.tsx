@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { mockSensorAPI, createMockWebSocket } from '../lib/mockAPI';
 import { 
   FlaskConical,
   Play,
@@ -29,66 +30,92 @@ const DashboardPage: React.FC = () => {
   const [isExperimentRunning, setIsExperimentRunning] = useState(false);
   const [sensorData, setSensorData] = useState<SensorData[]>([]);
   const [currentData, setCurrentData] = useState<SensorData | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
-  // Mock data generation for demo purposes
-  const generateMockData = (): SensorData => {
-    const now = Date.now();
-    return {
-      timestamp: now,
-      temperature: 20 + Math.random() * 10 + Math.sin(now / 10000) * 2,
-      acceleration: {
-        x: Math.sin(now / 5000) * 2 + Math.random() * 0.5,
-        y: Math.cos(now / 5000) * 2 + Math.random() * 0.5,
-        z: Math.sin(now / 3000) * 1.5 + Math.random() * 0.3,
+  // Load initial data
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        const data = await mockSensorAPI.getSensorData();
+        const formattedData = data.temperature.map((temp: any, index: number) => ({
+          timestamp: temp.timestamp,
+          temperature: temp.value,
+          acceleration: {
+            x: data.acceleration[index].x,
+            y: data.acceleration[index].y,
+            z: data.acceleration[index].z,
+          }
+        }));
+        setSensorData(formattedData);
+        
+        // Set current data to latest
+        if (formattedData.length > 0) {
+          setCurrentData(formattedData[formattedData.length - 1]);
+        }
+      } catch (error) {
+        console.error('Failed to load initial data:', error);
       }
     };
-  };
 
-  const startExperiment = () => {
-    setIsExperimentRunning(true);
-    setSensorData([]);
-    
-    // Start collecting data every 1 second
-    intervalRef.current = setInterval(() => {
-      const newData = generateMockData();
-      setCurrentData(newData);
-      setSensorData(prev => [...prev, newData]);
-    }, 1000);
-  };
+    loadInitialData();
+  }, []);
 
-  const stopExperiment = () => {
-    setIsExperimentRunning(false);
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
+  const startExperiment = async () => {
+    try {
+      await mockSensorAPI.startExperiment();
+      setIsExperimentRunning(true);
+      
+      // Connect to WebSocket for real-time data
+      wsRef.current = createMockWebSocket((data) => {
+        if (data.type === 'sensor_update') {
+          const newData: SensorData = {
+            timestamp: data.data.timestamp,
+            temperature: data.data.temperature.value,
+            acceleration: {
+              x: data.data.acceleration.x,
+              y: data.data.acceleration.y,
+              z: data.data.acceleration.z,
+            }
+          };
+          
+          setCurrentData(newData);
+          setSensorData(prev => [...prev, newData]);
+        }
+      });
+    } catch (error) {
+      console.error('Failed to start experiment:', error);
     }
   };
 
-  const exportCSV = () => {
-    if (sensorData.length === 0) return;
+  const stopExperiment = async () => {
+    try {
+      await mockSensorAPI.stopExperiment();
+      setIsExperimentRunning(false);
+      
+      // Close WebSocket connection
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    } catch (error) {
+      console.error('Failed to stop experiment:', error);
+    }
+  };
 
-    const headers = ['Timestamp', 'Temperature (°C)', 'Acceleration X', 'Acceleration Y', 'Acceleration Z'];
-    const csvContent = [
-      headers.join(','),
-      ...sensorData.map(data => [
-        new Date(data.timestamp).toISOString(),
-        data.temperature.toFixed(2),
-        data.acceleration.x.toFixed(3),
-        data.acceleration.y.toFixed(3),
-        data.acceleration.z.toFixed(3),
-      ].join(','))
-    ].join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `lablink-experiment-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+  const exportCSV = async () => {
+    try {
+      const blob = await mockSensorAPI.exportCSV();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `lablink-experiment-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to export CSV:', error);
+    }
   };
 
   const handleLogout = async () => {
@@ -102,8 +129,8 @@ const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+      if (wsRef.current) {
+        wsRef.current.close();
       }
     };
   }, []);
@@ -126,7 +153,7 @@ const DashboardPage: React.FC = () => {
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <FlaskConical className="w-8 h-8 text-lab-teal" />
-                <h1 className="text-2xl font-bold text-white">LabLink</h1>
+                <h1 className="text-2xl font-bold text-white">PocketLab</h1>
               </div>
               <span className="text-sm text-gray-400">Live Experiment Dashboard</span>
             </div>

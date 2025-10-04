@@ -1,6 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import type { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { mockAuth } from '../lib/mockAPI';
+
+// Mock user type
+interface User {
+  id: string;
+  email: string;
+  name?: string;
+  created_at: string;
+}
 
 interface AuthContextType {
   user: User | null;
@@ -26,12 +33,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    mockAuth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = mockAuth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
 
@@ -39,23 +46,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await mockAuth.signInWithPassword(email, password);
     if (error) throw error;
+    // Store token for session persistence
+    localStorage.setItem('mock-token', 'mock-access-token');
   };
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { error } = await mockAuth.signUp(email, password);
     if (error) throw error;
+    // Store token for session persistence
+    localStorage.setItem('mock-token', 'mock-access-token');
   };
 
   const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
+    const { error } = await mockAuth.signInWithOAuth();
     if (error) throw error;
+    // Store token for session persistence
+    localStorage.setItem('mock-token', 'mock-google-token');
   };
 
   const logout = async () => {
-    const { error } = await supabase.auth.signOut();
+    const { error } = await mockAuth.signOut();
     if (error) throw error;
+    // Clear stored token
+    localStorage.removeItem('mock-token');
   };
 
   const value = {

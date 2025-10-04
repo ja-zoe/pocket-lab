@@ -95,7 +95,7 @@ ${experiment.name},${experiment.date},${experiment.duration},${experiment.dataPo
               
               <div className="flex items-center space-x-2">
                 <FlaskConical className="w-8 h-8 text-lab-teal" />
-                <h1 className="text-2xl font-bold text-white">LabLink</h1>
+                <h1 className="text-2xl font-bold text-white">PocketLab</h1>
               </div>
               <span className="text-sm text-gray-400">Experiment History</span>
             </div>

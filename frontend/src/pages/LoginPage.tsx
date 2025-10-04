@@ -50,7 +50,7 @@ const LoginPage: React.FC = () => {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-lab-teal/20 rounded-full mb-4 glow-border">
             <FlaskConical className="w-8 h-8 text-lab-teal" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-2">LabLink</h1>
+          <h1 className="text-3xl font-bold text-white mb-2">PocketLab</h1>
           <p className="text-gray-400">Live Experiment Dashboard</p>
         </div>
 

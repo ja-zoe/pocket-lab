@@ -244,7 +244,8 @@ const DashboardPage: React.FC = () => {
 
   // Prepare data for charts with better formatting
   const chartData = sensorData.map(data => ({
-    time: new Date(data.timestamp).toLocaleTimeString(),
+    time: data.timestamp, // Keep original timestamp
+    timeString: new Date(data.timestamp).toLocaleTimeString(), // For display
     temperature: data.temperature,
     accelX: data.acceleration.x,
     accelY: data.acceleration.y,
@@ -441,8 +442,6 @@ const DashboardPage: React.FC = () => {
                 pressure: data.bme688.pressure,
                 voc: data.bme688.voc
               }))}
-              width={600}
-              height={400}
             />
           </div>
 
@@ -461,21 +460,45 @@ const DashboardPage: React.FC = () => {
             {chartData.length > 0 ? (
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData}>
+                  <LineChart data={chartData} margin={{ top: 20, right: 30, left: 30, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                     <XAxis 
                       dataKey="time" 
                       stroke="#9CA3AF"
-                      fontSize={12}
-                      tick={{ fill: '#9CA3AF' }}
+                      fontSize={10}
+                      tick={{ fill: '#9CA3AF', fontSize: 10 }}
+                      tickLine={{ stroke: '#9CA3AF' }}
+                      axisLine={{ stroke: '#9CA3AF' }}
+                      interval="preserveStartEnd"
+                      tickFormatter={(value) => {
+                        if (!value || isNaN(value)) return '';
+                        const date = new Date(value);
+                        if (isNaN(date.getTime())) return '';
+                        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                      }}
                     />
                     <YAxis 
                       stroke="#9CA3AF"
-                      fontSize={12}
-                      tick={{ fill: '#9CA3AF' }}
-                      label={{ value: 'VOC Index', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#9CA3AF' } }}
+                      fontSize={9}
+                      tick={{ fill: '#9CA3AF', fontSize: 9 }}
+                      tickLine={{ stroke: '#9CA3AF' }}
+                      axisLine={{ stroke: '#9CA3AF' }}
+                      width={50}
+                      label={{ 
+                        value: 'VOC Index', 
+                        angle: -90, 
+                        position: 'insideLeft', 
+                        style: { textAnchor: 'middle', fill: '#9CA3AF', fontSize: 10 } 
+                      }}
                       domain={['dataMin - 10', 'dataMax + 10']}
                       allowDataOverflow={false}
+                      tickCount={5}
+                      tickFormatter={(value) => {
+                        if (value >= 1000) return (value / 1000).toPrecision(3) + 'k';
+                        if (value >= 100) return value.toPrecision(3);
+                        if (value >= 10) return value.toPrecision(3);
+                        return value.toPrecision(3);
+                      }}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Line 
@@ -573,21 +596,42 @@ const DashboardPage: React.FC = () => {
             {chartData.length > 0 ? (
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData}>
+                  <LineChart data={chartData} margin={{ top: 20, right: 30, left: 30, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                     <XAxis 
                       dataKey="time" 
                       stroke="#9CA3AF"
-                      fontSize={12}
-                      tick={{ fill: '#9CA3AF' }}
+                      fontSize={10}
+                      tick={{ fill: '#9CA3AF', fontSize: 10 }}
+                      tickLine={{ stroke: '#9CA3AF' }}
+                      axisLine={{ stroke: '#9CA3AF' }}
+                      interval="preserveStartEnd"
+                      tickFormatter={(value) => {
+                        if (!value || isNaN(value)) return '';
+                        const date = new Date(value);
+                        if (isNaN(date.getTime())) return '';
+                        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                      }}
                     />
                     <YAxis 
                       stroke="#9CA3AF"
-                      fontSize={12}
-                      tick={{ fill: '#9CA3AF' }}
-                      label={{ value: 'g', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#9CA3AF' } }}
+                      fontSize={9}
+                      tick={{ fill: '#9CA3AF', fontSize: 9 }}
+                      tickLine={{ stroke: '#9CA3AF' }}
+                      axisLine={{ stroke: '#9CA3AF' }}
+                      width={50}
+                      label={{ 
+                        value: 'g', 
+                        angle: -90, 
+                        position: 'insideLeft', 
+                        style: { textAnchor: 'middle', fill: '#9CA3AF', fontSize: 10 } 
+                      }}
                       domain={['dataMin - 0.5', 'dataMax + 0.5']}
                       allowDataOverflow={false}
+                      tickCount={5}
+                      tickFormatter={(value) => {
+                        return value.toPrecision(3);
+                      }}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend />
@@ -646,21 +690,45 @@ const DashboardPage: React.FC = () => {
             {chartData.length > 0 ? (
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData}>
+                  <LineChart data={chartData} margin={{ top: 20, right: 30, left: 30, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                     <XAxis 
                       dataKey="time" 
                       stroke="#9CA3AF"
-                      fontSize={12}
-                      tick={{ fill: '#9CA3AF' }}
+                      fontSize={10}
+                      tick={{ fill: '#9CA3AF', fontSize: 10 }}
+                      tickLine={{ stroke: '#9CA3AF' }}
+                      axisLine={{ stroke: '#9CA3AF' }}
+                      interval="preserveStartEnd"
+                      tickFormatter={(value) => {
+                        if (!value || isNaN(value)) return '';
+                        const date = new Date(value);
+                        if (isNaN(date.getTime())) return '';
+                        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                      }}
                     />
                     <YAxis 
                       stroke="#9CA3AF"
-                      fontSize={12}
-                      tick={{ fill: '#9CA3AF' }}
-                      label={{ value: 'Distance (cm)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#9CA3AF' } }}
+                      fontSize={9}
+                      tick={{ fill: '#9CA3AF', fontSize: 9 }}
+                      tickLine={{ stroke: '#9CA3AF' }}
+                      axisLine={{ stroke: '#9CA3AF' }}
+                      width={50}
+                      label={{ 
+                        value: 'Distance (cm)', 
+                        angle: -90, 
+                        position: 'insideLeft', 
+                        style: { textAnchor: 'middle', fill: '#9CA3AF', fontSize: 10 } 
+                      }}
                       domain={['dataMin - 5', 'dataMax + 5']}
                       allowDataOverflow={false}
+                      tickCount={5}
+                      tickFormatter={(value) => {
+                        if (value >= 1000) return (value / 1000).toPrecision(3) + 'k';
+                        if (value >= 100) return value.toPrecision(3);
+                        if (value >= 10) return value.toPrecision(3);
+                        return value.toPrecision(3);
+                      }}
                     />
                     <Tooltip content={<CustomTooltip />} />
                     <Line 

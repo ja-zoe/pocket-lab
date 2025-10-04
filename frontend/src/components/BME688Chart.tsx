@@ -29,8 +29,8 @@ type MetricType = 'temperature' | 'humidity' | 'pressure';
 
 const BME688Chart: React.FC<BME688ChartProps> = ({ 
   data, 
-  width = 600, 
-  height = 300 
+  width = 500, 
+  height = 250 
 }) => {
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('temperature');
 
@@ -73,8 +73,8 @@ const BME688Chart: React.FC<BME688ChartProps> = ({
       const clampedVoc = clampValue(item.voc, 0, 1000);
       
       return {
-        timestamp: new Date(item.timestamp).toLocaleTimeString(),
-        time: item.timestamp,
+        timestamp: item.timestamp, // Keep original timestamp
+        timeString: new Date(item.timestamp).toLocaleTimeString(), // For display
         [selectedMetric]: item[selectedMetric],
         // Add other metrics for tooltip display with clamped values
         temperature: clampedTemperature,
@@ -89,11 +89,11 @@ const BME688Chart: React.FC<BME688ChartProps> = ({
   const currentData = data[data.length - 1] || { temperature: 0, humidity: 0, pressure: 0, voc: 0 };
 
   return (
-    <div className="bg-white/5 backdrop-blur-sm border border-lab-teal/30 rounded-xl p-6 hover:border-lab-teal/50 transition-all duration-300 shadow-lg hover:shadow-glow-teal">
+    <div className="card-glow p-6 w-full max-w-full">
       {/* Header with dropdown */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-3">
-          <div className="p-2 bg-lab-teal/20 rounded-lg">
+          <div className="p-2 bg-blue-500/20 rounded-lg">
             {currentConfig.icon}
           </div>
           <div>
@@ -127,7 +127,7 @@ const BME688Chart: React.FC<BME688ChartProps> = ({
       <div className="mb-4 p-4 bg-gray-800/30 rounded-lg">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-lab-teal/20 rounded-lg">
+            <div className="p-2 bg-blue-500/20 rounded-lg">
               {currentConfig.icon}
             </div>
             <div>
@@ -157,29 +157,43 @@ const BME688Chart: React.FC<BME688ChartProps> = ({
       </div>
 
       {/* Chart */}
-      <div style={{ width, height }} className="overflow-hidden">
+      <div className="w-full h-80 overflow-hidden max-w-full">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart 
             data={chartData}
-            margin={{ top: 20, right: 50, left: 20, bottom: 20 }}
+            margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
           >
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis 
               dataKey="timestamp" 
               stroke="#9ca3af"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
+              fontSize={10}
+              tick={{ fill: '#9ca3af', fontSize: 10 }}
+              tickLine={{ stroke: '#9ca3af' }}
+              axisLine={{ stroke: '#9ca3af' }}
+              interval="preserveStartEnd"
+              tickFormatter={(value) => {
+                if (!value || isNaN(value)) return '';
+                const date = new Date(value);
+                if (isNaN(date.getTime())) return '';
+                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              }}
             />
             <YAxis 
               stroke="#9ca3af"
-              fontSize={12}
-              tickLine={false}
-              axisLine={false}
+              fontSize={9}
+              tick={{ fill: '#9ca3af', fontSize: 9 }}
+              tickLine={{ stroke: '#9ca3af' }}
+              axisLine={{ stroke: '#9ca3af' }}
+              width={40}
               domain={['dataMin - 0.1', 'dataMax + 0.1']}
-              tickFormatter={(value) => `${value}${currentConfig.unit}`}
+              tickFormatter={(value) => {
+                const formatted = value.toPrecision(3);
+                return `${formatted}${currentConfig.unit}`;
+              }}
               allowDataOverflow={false}
               scale="linear"
+              tickCount={5}
             />
             <Tooltip
               contentStyle={{

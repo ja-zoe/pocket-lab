@@ -2,15 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
-  FlaskConical, 
-  Play, 
-  Square, 
-  Download, 
-  LogOut, 
+  FlaskConical,
+  Play,
+  Square,
+  Download,
+  LogOut,
   History,
   Thermometer,
-  Activity,
-  Clock
+  Activity
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 

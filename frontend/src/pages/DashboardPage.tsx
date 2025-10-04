@@ -262,10 +262,10 @@ const DashboardPage: React.FC = () => {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-lab-dark-alt border border-lab-teal/50 rounded-lg p-3 shadow-glow-teal">
-          <p className="text-white font-medium mb-2">{label}</p>
+        <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 shadow-lg">
+          <p className="text-white font-medium mb-2 text-sm">{label}</p>
           {payload.map((entry: any, index: number) => (
-            <p key={index} className="text-sm" style={{ color: entry.color }}>
+            <p key={index} className="text-sm text-gray-300" style={{ color: entry.color }}>
               {entry.name}: {typeof entry.value === 'number' ? entry.value.toFixed(2) : entry.value}
             </p>
           ))}
@@ -285,15 +285,15 @@ const DashboardPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-lab-dark">
+    <div className="min-h-screen bg-gray-900">
       {/* Toast Notification */}
       {showToast && (
         <div className={`toast ${toastType}`}>
           <div className="flex items-center space-x-2">
             {toastType === 'success' ? (
-              <CheckCircle className="w-5 h-5 text-lab-green" />
+              <CheckCircle className="w-5 h-5 text-green-500" />
             ) : (
-              <AlertCircle className="w-5 h-5 text-lab-red" />
+              <AlertCircle className="w-5 h-5 text-red-500" />
             )}
             <span>{toastMessage}</span>
           </div>
@@ -301,12 +301,12 @@ const DashboardPage: React.FC = () => {
       )}
       
       {/* Enhanced Header */}
-      <header className="bg-lab-dark-alt/80 backdrop-blur-sm border-b border-lab-teal/30 sticky top-0 z-40">
+      <header className="bg-gray-900/95 backdrop-blur-sm fixed top-0 left-0 right-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <FlaskConical className="w-8 h-8 text-lab-teal hover:text-lab-teal-light transition-colors" />
+                <FlaskConical className="w-8 h-8 text-blue-500 hover:text-blue-400 transition-colors" />
                 <h1 className="text-2xl font-bold text-white">PocketLab</h1>
               </div>
               <span className="text-sm text-gray-400 hidden sm:block">Live Experiment Dashboard</span>
@@ -338,7 +338,7 @@ const DashboardPage: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
         {/* Enhanced Control Panel */}
         <div className="mb-8">
           <div className="card-glow p-6 animate-fade-in">
@@ -367,19 +367,19 @@ const DashboardPage: React.FC = () => {
                 {currentData && (
                   <div className="flex flex-wrap items-center gap-4 text-sm text-gray-300">
                     <div className="flex items-center space-x-1">
-                      <Thermometer className="w-4 h-4 text-lab-blue" />
+                      <Thermometer className="w-4 h-4 text-blue-500" />
                       <span>{currentData.bme688.temperature.toFixed(1)}°C</span>
                     </div>
                     <div className="flex items-center space-x-1">
-                      <Droplets className="w-4 h-4 text-lab-cyan" />
+                      <Droplets className="w-4 h-4 text-cyan-500" />
                       <span>{currentData.bme688.humidity.toFixed(0)}%</span>
                     </div>
                     <div className="flex items-center space-x-1">
-                      <Gauge className="w-4 h-4 text-lab-purple" />
+                      <Gauge className="w-4 h-4 text-purple-500" />
                       <span>{currentData.bme688.pressure.toFixed(0)}hPa</span>
                     </div>
                     <div className="flex items-center space-x-1">
-                      <Ruler className="w-4 h-4 text-lab-orange" />
+                      <Ruler className="w-4 h-4 text-orange-500" />
                       <span>{currentData.ultrasonic.distance.toFixed(0)}cm</span>
                     </div>
                   </div>
@@ -450,7 +450,7 @@ const DashboardPage: React.FC = () => {
           <div className="card-glow p-6 animate-slide-up">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
-                <Eye className="w-6 h-6 text-lab-orange" />
+                <Eye className="w-6 h-6 text-orange-500" />
                 <span>Air Quality / VOC</span>
               </h2>
               <div className="text-sm text-gray-400">
@@ -504,7 +504,7 @@ const DashboardPage: React.FC = () => {
           <div className="card-glow p-6 animate-slide-up">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
-                <Activity className="w-6 h-6 text-lab-green" />
+                <Activity className="w-6 h-6 text-green-500" />
                 <span>3D Acceleration</span>
               </h2>
               <div className="text-sm text-gray-400">
@@ -532,7 +532,7 @@ const DashboardPage: React.FC = () => {
           <div className="card-glow p-6 animate-slide-up">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
-                <Activity className="w-6 h-6 text-lab-cyan" />
+                <Activity className="w-6 h-6 text-cyan-500" />
                 <span>3D Gyroscope</span>
               </h2>
               <div className="text-sm text-gray-400">
@@ -562,7 +562,7 @@ const DashboardPage: React.FC = () => {
           <div className="card-glow p-6 animate-slide-up">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
-                <Activity className="w-6 h-6 text-lab-orange" />
+                <Activity className="w-6 h-6 text-orange-500" />
                 <span>Acceleration Time Series</span>
               </h2>
               <div className="text-sm text-gray-400">
@@ -635,7 +635,7 @@ const DashboardPage: React.FC = () => {
           <div className="card-glow p-6 animate-slide-up">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
-                <Ruler className="w-6 h-6 text-lab-purple" />
+                <Ruler className="w-6 h-6 text-purple-500" />
                 <span>Distance / Motion</span>
               </h2>
               <div className="text-sm text-gray-400">

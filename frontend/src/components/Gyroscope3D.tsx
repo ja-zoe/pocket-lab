@@ -142,7 +142,7 @@ const Gyroscope3D: React.FC<Gyroscope3DProps> = ({
   height = 400 
 }) => {
   return (
-    <div style={{ width, height }} className="border border-lab-teal/30 rounded-xl overflow-hidden hover:border-lab-teal/50 transition-all duration-300 shadow-lg hover:shadow-glow-teal">
+    <div style={{ width, height }} className="border border-gray-600 rounded-lg overflow-hidden hover:border-gray-500 transition-all duration-200 shadow-sm">
       <Canvas
         camera={{ position: [5, 5, 5], fov: 50 }}
         style={{ background: 'transparent' }}

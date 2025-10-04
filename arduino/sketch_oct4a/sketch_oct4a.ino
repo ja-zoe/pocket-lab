@@ -4,15 +4,24 @@
 #include <Adafruit_BMP280.h>
 #include <Adafruit_BME680.h>   // 🔹 Library that also supports BME688
 #include <MPU6050.h>
+<<<<<<< HEAD
 #include <Adafruit_HMC5883_U.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
 
+=======
+
+// ---- MAGNETOMETER: uncomment the one you really have ----
+#include <Adafruit_HMC5883_U.h>   // For genuine HMC5883L
+// #include <QMC5883LCompass.h>   // For QMC5883L clones
+
+>>>>>>> ccb096e9ad964485bd703975aff5afe8aa0249d7
 // ---- ESP-IDF log control ----
 extern "C" {
   #include "esp_log.h"
 }
 
+<<<<<<< HEAD
 // ---- WiFi credentials ----
 const char* ssid = "RUatHome";
 const char* password = "9Tc63j2SzTE9";
@@ -21,11 +30,15 @@ const char* password = "9Tc63j2SzTE9";
 const char* serverUrl = "http://your-server.com/api/sensor";
 
 // ---- I2C pins ----
+=======
+// I2C pins (adjust for your board!)
+>>>>>>> ccb096e9ad964485bd703975aff5afe8aa0249d7
 #define SDA_PIN 5
 #define SCL_PIN 6
 
 // ---- Sensor objects ----
 Adafruit_BMP280 bmp;                  // BMP280
+<<<<<<< HEAD
 Adafruit_BME680 bme;                  // BME688 (same driver)
 MPU6050 mpu;                          // MPU6050
 Adafruit_HMC5883_Unified mag(12345);  // Magnetometer
@@ -54,10 +67,32 @@ void setup() {
   // ---- Initialize sensors ----
   if (!bmp.begin(BMP280_ADDR)) {
     Serial.println("⚠️ BMP280 not detected!");
+=======
+MPU6050 mpu;                          // MPU6050
+Adafruit_HMC5883_Unified mag(12345);  // For HMC
+// QMC5883LCompass mag;               // For QMC
+
+// Pick the right BMP280 address after you scan
+#define BMP280_ADDR 0x77  // or 0x77
+
+void setup() {
+  Serial.begin(115200);
+
+  // Suppress noisy ESP-IDF logs for I2C
+  esp_log_level_set("i2c.master", ESP_LOG_NONE);
+
+  Wire.begin(SDA_PIN, SCL_PIN);
+  delay(200);
+
+  // ---- BMP280 ----
+  if (!bmp.begin(BMP280_ADDR)) {
+    Serial.println("⚠️  BMP280 not detected!");
+>>>>>>> ccb096e9ad964485bd703975aff5afe8aa0249d7
   } else {
     Serial.println("✅ BMP280 ready");
   }
 
+<<<<<<< HEAD
   if (!bme.begin(0x76)) {  // BME688 shares I2C with BMP280
     Serial.println("⚠️ BME688 not detected!");
   } else {
@@ -76,6 +111,24 @@ void setup() {
   } else {
     Serial.println("⚠️ Magnetometer not detected!");
   }
+=======
+  // ---- MPU6050 ----
+  mpu.initialize();
+  if (mpu.testConnection()) {
+    Serial.println("✅ MPU6050 ready");
+  } else {
+    Serial.println("⚠️  MPU6050 not detected!");
+  }
+
+  // ---- Magnetometer ----
+  if (mag.begin()) {
+    Serial.println("✅ Magnetometer ready");
+  } else {
+    Serial.println("⚠️  Magnetometer not detected!");
+  }
+  // For QMC:
+  // mag.init();
+>>>>>>> ccb096e9ad964485bd703975aff5afe8aa0249d7
 }
 
 void loop() {
@@ -104,6 +157,7 @@ void loop() {
 
   // --- Read magnetometer ---
   sensors_event_t event;
+<<<<<<< HEAD
   mag.getEvent(&event);
 
   // --- Build JSON ---
@@ -120,6 +174,19 @@ void loop() {
   bme688["humidity_%"] = humidity_bme;
   bme688["pressure_hpa"] = pressure_bme;
   bme688["gas_kohm"] = gas_bme;
+=======
+  mag.getEvent(&event);        // for HMC
+  // mag.read();                // for QMC
+  // float mx = mag.getX();     // QMC accessors
+  // float my = mag.getY();
+  // float mz = mag.getZ();
+
+  // --- Build JSON ---
+  StaticJsonDocument<512> doc;
+
+  doc["temperature_c"] = temperature;
+  doc["pressure_hpa"] = pressure;
+>>>>>>> ccb096e9ad964485bd703975aff5afe8aa0249d7
 
   JsonObject accel = doc.createNestedObject("accel_g");
   accel["x"] = ax_g;
@@ -140,6 +207,7 @@ void loop() {
   serializeJson(doc, json);
   Serial.println(json);
 
+<<<<<<< HEAD
   // --- Send JSON to backend ---
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
@@ -158,5 +226,7 @@ void loop() {
     Serial.println("WiFi not connected!");
   }
 
+=======
+>>>>>>> ccb096e9ad964485bd703975aff5afe8aa0249d7
   delay(500);
 }

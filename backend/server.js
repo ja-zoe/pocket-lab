@@ -24,6 +24,8 @@ const mockUsers = [
 let sensorData = {
   temperature: [],
   acceleration: [],
+  bme688: [],
+  ultrasonic: [],
   timestamp: []
 };
 
@@ -47,6 +49,23 @@ const generateMockData = () => {
       y: Math.cos(i * 0.15) * 1.5 + Math.random() * 0.3,
       z: 9.8 + Math.sin(i * 0.1) * 0.5 + Math.random() * 0.2,
       unit: 'm/s²'
+    });
+    
+    // BME688 Environmental Sensor Data
+    sensorData.bme688.push({
+      timestamp,
+      temperature: 22 + Math.sin(i * 0.08) * 6 + Math.random() * 2, // 22°C ± 6°C
+      humidity: 50 + Math.sin(i * 0.05) * 20 + Math.random() * 5, // 50% ± 20%
+      pressure: 1013 + Math.sin(i * 0.03) * 10 + Math.random() * 2, // 1013 hPa ± 10
+      voc: 50 + Math.sin(i * 0.1) * 30 + Math.random() * 20, // VOC index 50 ± 30
+      unit: 'mixed'
+    });
+    
+    // Ultrasonic Distance Sensor Data
+    sensorData.ultrasonic.push({
+      timestamp,
+      distance: 50 + Math.sin(i * 0.15) * 40 + Math.random() * 10, // 50cm ± 40cm
+      unit: 'cm'
     });
     
     sensorData.timestamp.push(timestamp);
@@ -99,6 +118,8 @@ app.get('/api/sensor-data', (req, res) => {
   res.json({
     temperature: sensorData.temperature.slice(-100), // Last 100 points
     acceleration: sensorData.acceleration.slice(-100),
+    bme688: sensorData.bme688.slice(-100),
+    ultrasonic: sensorData.ultrasonic.slice(-100),
     timestamp: sensorData.timestamp.slice(-100)
   });
 });
@@ -107,6 +128,8 @@ app.get('/api/sensor-data/latest', (req, res) => {
   const latest = {
     temperature: sensorData.temperature[sensorData.temperature.length - 1],
     acceleration: sensorData.acceleration[sensorData.acceleration.length - 1],
+    bme688: sensorData.bme688[sensorData.bme688.length - 1],
+    ultrasonic: sensorData.ultrasonic[sensorData.ultrasonic.length - 1],
     timestamp: Date.now()
   };
   
@@ -143,13 +166,15 @@ app.get('/api/export/csv', (req, res) => {
 
 // Generate CSV data
 const generateCSV = () => {
-  const headers = 'Timestamp,Temperature (°C),Acceleration X (m/s²),Acceleration Y (m/s²),Acceleration Z (m/s²)\n';
+  const headers = 'Timestamp,Temperature (°C),Acceleration X (m/s²),Acceleration Y (m/s²),Acceleration Z (m/s²),BME Temperature (°C),BME Humidity (%),BME Pressure (hPa),BME VOC Index,Ultrasonic Distance (cm)\n';
   
   const rows = sensorData.temperature.map((temp, index) => {
     const acc = sensorData.acceleration[index];
+    const bme = sensorData.bme688[index];
+    const ultrasonic = sensorData.ultrasonic[index];
     const timestamp = new Date(temp.timestamp).toISOString();
     
-    return `${timestamp},${temp.value.toFixed(2)},${acc.x.toFixed(2)},${acc.y.toFixed(2)},${acc.z.toFixed(2)}`;
+    return `${timestamp},${temp.value.toFixed(2)},${acc.x.toFixed(2)},${acc.y.toFixed(2)},${acc.z.toFixed(2)},${bme.temperature.toFixed(2)},${bme.humidity.toFixed(1)},${bme.pressure.toFixed(1)},${bme.voc.toFixed(1)},${ultrasonic.distance.toFixed(1)}`;
   }).join('\n');
   
   return headers + rows;
@@ -206,7 +231,9 @@ wss.on('connection', (ws) => {
     type: 'initial_data',
     data: {
       temperature: sensorData.temperature.slice(-10),
-      acceleration: sensorData.acceleration.slice(-10)
+      acceleration: sensorData.acceleration.slice(-10),
+      bme688: sensorData.bme688.slice(-10),
+      ultrasonic: sensorData.ultrasonic.slice(-10)
     }
   }));
   
@@ -229,15 +256,36 @@ wss.on('connection', (ws) => {
       unit: 'm/s²'
     };
     
+    // Generate new BME688 data
+    const newBME = {
+      timestamp: now,
+      temperature: 22 + Math.sin(now * 0.0008) * 6 + Math.random() * 2,
+      humidity: 50 + Math.sin(now * 0.0005) * 20 + Math.random() * 5,
+      pressure: 1013 + Math.sin(now * 0.0003) * 10 + Math.random() * 2,
+      voc: 50 + Math.sin(now * 0.001) * 30 + Math.random() * 20,
+      unit: 'mixed'
+    };
+    
+    // Generate new ultrasonic data
+    const newUltrasonic = {
+      timestamp: now,
+      distance: 50 + Math.sin(now * 0.0015) * 40 + Math.random() * 10,
+      unit: 'cm'
+    };
+    
     // Add to data arrays
     sensorData.temperature.push(newTemp);
     sensorData.acceleration.push(newAcc);
+    sensorData.bme688.push(newBME);
+    sensorData.ultrasonic.push(newUltrasonic);
     sensorData.timestamp.push(now);
     
     // Keep only last 1000 points
     if (sensorData.temperature.length > 1000) {
       sensorData.temperature.shift();
       sensorData.acceleration.shift();
+      sensorData.bme688.shift();
+      sensorData.ultrasonic.shift();
       sensorData.timestamp.shift();
     }
     
@@ -248,6 +296,8 @@ wss.on('connection', (ws) => {
         data: {
           temperature: newTemp,
           acceleration: newAcc,
+          bme688: newBME,
+          ultrasonic: newUltrasonic,
           timestamp: now
         }
       }));

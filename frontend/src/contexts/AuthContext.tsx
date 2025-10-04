@@ -46,24 +46,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await mockAuth.signInWithPassword(email, password);
+    const { data, error } = await mockAuth.signInWithPassword(email, password);
     if (error) throw error;
     // Store token for session persistence
     localStorage.setItem('mock-token', 'mock-access-token');
+    // Update user state immediately
+    setUser(data.user);
   };
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await mockAuth.signUp(email, password);
+    const { data, error } = await mockAuth.signUp(email, password);
     if (error) throw error;
     // Store token for session persistence
     localStorage.setItem('mock-token', 'mock-access-token');
+    // Update user state immediately
+    setUser(data.user);
   };
 
   const signInWithGoogle = async () => {
-    const { error } = await mockAuth.signInWithOAuth();
+    const { data, error } = await mockAuth.signInWithOAuth();
     if (error) throw error;
     // Store token for session persistence
     localStorage.setItem('mock-token', 'mock-google-token');
+    // Update user state immediately
+    setUser(data.user);
   };
 
   const logout = async () => {

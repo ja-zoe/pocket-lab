@@ -52,6 +52,8 @@ export default {
           dark: "#0f172a", // navy background
           teal: "#14b8a6", // teal accent
           green: "#22c55e", // light green accent
+          orange: "#f97316", // orange for VOC
+          purple: "#a855f7", // purple for distance
         }
       },
       borderRadius: {

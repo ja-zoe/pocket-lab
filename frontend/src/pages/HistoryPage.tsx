@@ -79,9 +79,9 @@ ${experiment.name},${experiment.date},${experiment.duration},${experiment.dataPo
   };
 
   return (
-    <div className="min-h-screen bg-lab-dark">
+    <div className="min-h-screen bg-gray-900">
       {/* Header */}
-      <header className="bg-gray-900/50 backdrop-blur-sm border-b border-lab-teal/30">
+      <header className="bg-gray-900/95 backdrop-blur-sm fixed top-0 left-0 right-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
@@ -94,7 +94,7 @@ ${experiment.name},${experiment.date},${experiment.duration},${experiment.dataPo
               </Link>
               
               <div className="flex items-center space-x-2">
-                <FlaskConical className="w-8 h-8 text-lab-teal" />
+                <FlaskConical className="w-8 h-8 text-blue-500" />
                 <h1 className="text-2xl font-bold text-white">PocketLab</h1>
               </div>
               <span className="text-sm text-gray-400">Experiment History</span>
@@ -104,14 +104,14 @@ ${experiment.name},${experiment.date},${experiment.duration},${experiment.dataPo
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-24">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-white mb-2">Experiment History</h2>
           <p className="text-gray-400">View and manage your past experiments</p>
         </div>
 
         {experiments.length === 0 ? (
-          <div className="card-glow rounded-2xl p-12 text-center">
+          <div className="card-glow p-12 text-center">
             <FlaskConical className="w-16 h-16 text-gray-500 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-white mb-2">No Experiments Yet</h3>
             <p className="text-gray-400 mb-6">Start your first experiment to see it here</p>
@@ -126,7 +126,7 @@ ${experiment.name},${experiment.date},${experiment.duration},${experiment.dataPo
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {experiments.map((experiment) => (
-              <div key={experiment.id} className="card-glow rounded-2xl p-6 hover:shadow-xl hover:shadow-lab-teal/20 transition-all duration-200">
+              <div key={experiment.id} className="card-glow p-6 hover:shadow-xl transition-all duration-200">
                 <div className="flex items-start justify-between mb-4">
                   <h3 className="text-lg font-semibold text-white">{experiment.name}</h3>
                   <button
@@ -157,7 +157,7 @@ ${experiment.name},${experiment.date},${experiment.duration},${experiment.dataPo
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   <div className="bg-gray-800/50 rounded-lg p-3">
                     <div className="flex items-center space-x-2 mb-1">
-                      <Thermometer className="w-4 h-4 text-lab-teal" />
+                      <Thermometer className="w-4 h-4 text-blue-500" />
                       <span className="text-xs text-gray-400">Avg Temp</span>
                     </div>
                     <div className="text-lg font-semibold text-white">
@@ -167,7 +167,7 @@ ${experiment.name},${experiment.date},${experiment.duration},${experiment.dataPo
                   
                   <div className="bg-gray-800/50 rounded-lg p-3">
                     <div className="flex items-center space-x-2 mb-1">
-                      <Activity className="w-4 h-4 text-lab-green" />
+                      <Activity className="w-4 h-4 text-green-500" />
                       <span className="text-xs text-gray-400">Max Accel</span>
                     </div>
                     <div className="text-lg font-semibold text-white">

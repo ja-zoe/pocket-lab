@@ -432,7 +432,7 @@ const DashboardPage: React.FC = () => {
         {/* Enhanced Charts Grid */}
         <div className="dashboard-grid">
           {/* BME688 Environmental Data Chart with Dropdown */}
-          <div className="animate-slide-up">
+          <div className="animate-fade-in">
             <BME688Chart 
               data={sensorData.map(data => ({
                 timestamp: data.timestamp,
@@ -447,7 +447,7 @@ const DashboardPage: React.FC = () => {
           </div>
 
           {/* Air Quality / VOC Chart */}
-          <div className="card-glow p-6 animate-slide-up">
+          <div className="card-glow p-6 animate-fade-in">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
                 <Eye className="w-6 h-6 text-orange-500" />
@@ -501,7 +501,7 @@ const DashboardPage: React.FC = () => {
           </div>
 
           {/* 3D Acceleration Visualization */}
-          <div className="card-glow p-6 animate-slide-up">
+          <div className="card-glow p-6 animate-fade-in">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
                 <Activity className="w-6 h-6 text-green-500" />
@@ -529,14 +529,14 @@ const DashboardPage: React.FC = () => {
           </div>
 
           {/* 3D Gyroscope Visualization */}
-          <div className="card-glow p-6 animate-slide-up">
+          <div className="card-glow p-6 animate-fade-in">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
                 <Activity className="w-6 h-6 text-cyan-500" />
                 <span>3D Gyroscope</span>
               </h2>
               <div className="text-sm text-gray-400">
-                Real-time 3D orientation
+                MPU6050 YXZ rotation mapping
               </div>
             </div>
             
@@ -559,7 +559,7 @@ const DashboardPage: React.FC = () => {
           </div>
 
           {/* Acceleration Time Series */}
-          <div className="card-glow p-6 animate-slide-up">
+          <div className="card-glow p-6 animate-fade-in">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
                 <Activity className="w-6 h-6 text-orange-500" />
@@ -632,7 +632,7 @@ const DashboardPage: React.FC = () => {
           </div>
 
           {/* Distance (Ultrasonic) Chart */}
-          <div className="card-glow p-6 animate-slide-up">
+          <div className="card-glow p-6 animate-fade-in">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center space-x-2">
                 <Ruler className="w-6 h-6 text-purple-500" />

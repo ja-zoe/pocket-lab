@@ -4,9 +4,9 @@ import { OrbitControls, Text } from '@react-three/drei';
 import * as THREE from 'three';
 
 interface Gyroscope3DProps {
-  pitch: number;
-  roll: number;
-  yaw: number;
+  pitch: number; // X-axis rotation (pitch_deg)
+  roll: number;  // Z-axis rotation (roll_deg) 
+  yaw: number;   // Y-axis rotation (yaw_deg)
   width?: number;
   height?: number;
 }
@@ -18,74 +18,121 @@ const RotatingCube: React.FC<{ pitch: number; roll: number; yaw: number }> = ({
   yaw 
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
+  const targetRotation = useRef({ x: 0, y: 0, z: 0 });
 
-  useFrame(() => {
+  useFrame((state, delta) => {
     if (meshRef.current) {
-      // Convert degrees to radians and apply rotations
-      // Note: Three.js uses different rotation order, so we adjust accordingly
-      meshRef.current.rotation.x = THREE.MathUtils.degToRad(pitch);
-      meshRef.current.rotation.y = THREE.MathUtils.degToRad(yaw);
-      meshRef.current.rotation.z = THREE.MathUtils.degToRad(roll);
+      // MPU6050 rotation mapping with YXZ rotation order
+      // roll_deg → Z-axis rotation
+      // pitch_deg → X-axis rotation  
+      // yaw_deg → Y-axis rotation
+      
+      // Convert degrees to radians
+      const pitchRad = THREE.MathUtils.degToRad(pitch);
+      const rollRad = THREE.MathUtils.degToRad(roll);
+      const yawRad = THREE.MathUtils.degToRad(yaw);
+      
+      // Update target rotation
+      targetRotation.current.x = pitchRad;
+      targetRotation.current.y = yawRad;
+      targetRotation.current.z = rollRad;
+      
+      // Smooth interpolation to target rotation
+      const lerpFactor = Math.min(delta * 5, 1); // Smooth interpolation
+      meshRef.current.rotation.x = THREE.MathUtils.lerp(meshRef.current.rotation.x, targetRotation.current.x, lerpFactor);
+      meshRef.current.rotation.y = THREE.MathUtils.lerp(meshRef.current.rotation.y, targetRotation.current.y, lerpFactor);
+      meshRef.current.rotation.z = THREE.MathUtils.lerp(meshRef.current.rotation.z, targetRotation.current.z, lerpFactor);
+      
+      // Debug: Log rotation values every 2 seconds
+      if (Math.floor(state.clock.elapsedTime) % 2 === 0 && Math.floor(state.clock.elapsedTime) !== 0) {
+        console.log('Gyroscope rotation:', { 
+          pitch: pitch.toFixed(1), 
+          roll: roll.toFixed(1), 
+          yaw: yaw.toFixed(1),
+          currentRotation: {
+            x: (meshRef.current.rotation.x * 180 / Math.PI).toFixed(1),
+            y: (meshRef.current.rotation.y * 180 / Math.PI).toFixed(1),
+            z: (meshRef.current.rotation.z * 180 / Math.PI).toFixed(1)
+          }
+        });
+      }
     }
   });
 
   return (
-    <group>
+    <group ref={meshRef}>
       {/* Main rotating cube */}
-      <mesh ref={meshRef}>
+      <mesh>
         <boxGeometry args={[2, 2, 2]} />
         <meshStandardMaterial 
           color="#14b8a6" 
           metalness={0.3} 
           roughness={0.4}
           transparent
-          opacity={0.8}
+          opacity={0.9}
         />
       </mesh>
       
       {/* Wireframe outline */}
-      <mesh ref={meshRef}>
+      <mesh>
         <boxGeometry args={[2.05, 2.05, 2.05]} />
         <meshBasicMaterial 
           color="#14b8a6" 
           wireframe 
           transparent
-          opacity={0.3}
+          opacity={0.5}
         />
       </mesh>
       
-      {/* Axis indicators */}
-      <group ref={meshRef}>
-        {/* X-axis (Pitch) - Red */}
-        <mesh position={[1.5, 0, 0]}>
-          <cylinderGeometry args={[0.05, 0.05, 0.3]} />
-          <meshBasicMaterial color="#ef4444" />
-        </mesh>
-        <mesh position={[1.7, 0, 0]}>
-          <coneGeometry args={[0.1, 0.2]} />
-          <meshBasicMaterial color="#ef4444" />
-        </mesh>
-        
-        {/* Y-axis (Yaw) - Green */}
-        <mesh position={[0, 1.5, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <cylinderGeometry args={[0.05, 0.05, 0.3]} />
-          <meshBasicMaterial color="#22c55e" />
-        </mesh>
-        <mesh position={[0, 1.7, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <coneGeometry args={[0.1, 0.2]} />
-          <meshBasicMaterial color="#22c55e" />
-        </mesh>
-        
-        {/* Z-axis (Roll) - Blue */}
-        <mesh position={[0, 0, 1.5]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.05, 0.05, 0.3]} />
-          <meshBasicMaterial color="#3b82f6" />
-        </mesh>
-        <mesh position={[0, 0, 1.7]} rotation={[Math.PI / 2, 0, 0]}>
-          <coneGeometry args={[0.1, 0.2]} />
-          <meshBasicMaterial color="#3b82f6" />
-        </mesh>
-      </group>
+      {/* Corner markers for better rotation visibility */}
+      {/* Red corner markers */}
+      <mesh position={[1.1, 1.1, 1.1]}>
+        <sphereGeometry args={[0.1]} />
+        <meshBasicMaterial color="#ef4444" />
+      </mesh>
+      <mesh position={[-1.1, 1.1, 1.1]}>
+        <sphereGeometry args={[0.1]} />
+        <meshBasicMaterial color="#ef4444" />
+      </mesh>
+      <mesh position={[1.1, -1.1, 1.1]}>
+        <sphereGeometry args={[0.1]} />
+        <meshBasicMaterial color="#ef4444" />
+      </mesh>
+      <mesh position={[1.1, 1.1, -1.1]}>
+        <sphereGeometry args={[0.1]} />
+        <meshBasicMaterial color="#ef4444" />
+      </mesh>
+      
+      {/* Axis indicators - MPU6050 mapping */}
+      {/* X-axis (Pitch) - Red */}
+      <mesh position={[1.5, 0, 0]}>
+        <cylinderGeometry args={[0.05, 0.05, 0.3]} />
+        <meshBasicMaterial color="#ef4444" />
+      </mesh>
+      <mesh position={[1.7, 0, 0]}>
+        <coneGeometry args={[0.1, 0.2]} />
+        <meshBasicMaterial color="#ef4444" />
+      </mesh>
+      
+      {/* Y-axis (Yaw) - Green */}
+      <mesh position={[0, 1.5, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <cylinderGeometry args={[0.05, 0.05, 0.3]} />
+        <meshBasicMaterial color="#22c55e" />
+      </mesh>
+      <mesh position={[0, 1.7, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <coneGeometry args={[0.1, 0.2]} />
+        <meshBasicMaterial color="#22c55e" />
+      </mesh>
+      
+      {/* Z-axis (Roll) - Blue */}
+      <mesh position={[0, 0, 1.5]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.05, 0.05, 0.3]} />
+        <meshBasicMaterial color="#3b82f6" />
+      </mesh>
+      <mesh position={[0, 0, 1.7]} rotation={[Math.PI / 2, 0, 0]}>
+        <coneGeometry args={[0.1, 0.2]} />
+        <meshBasicMaterial color="#3b82f6" />
+      </mesh>
     </group>
   );
 };
@@ -98,7 +145,7 @@ const AxisLabels: React.FC<{ pitch: number; roll: number; yaw: number }> = ({
 }) => {
   return (
     <group>
-      {/* Pitch label */}
+      {/* Pitch label (X-axis) */}
       <Text
         position={[3, 0, 0]}
         fontSize={0.3}
@@ -106,10 +153,10 @@ const AxisLabels: React.FC<{ pitch: number; roll: number; yaw: number }> = ({
         anchorX="center"
         anchorY="middle"
       >
-        Pitch: {pitch.toFixed(1)}°
+        Pitch: {pitch.toFixed(1)}° (X)
       </Text>
       
-      {/* Roll label */}
+      {/* Yaw label (Y-axis) */}
       <Text
         position={[0, 3, 0]}
         fontSize={0.3}
@@ -117,10 +164,10 @@ const AxisLabels: React.FC<{ pitch: number; roll: number; yaw: number }> = ({
         anchorX="center"
         anchorY="middle"
       >
-        Roll: {roll.toFixed(1)}°
+        Yaw: {yaw.toFixed(1)}° (Y)
       </Text>
       
-      {/* Yaw label */}
+      {/* Roll label (Z-axis) */}
       <Text
         position={[0, 0, 3]}
         fontSize={0.3}
@@ -128,7 +175,7 @@ const AxisLabels: React.FC<{ pitch: number; roll: number; yaw: number }> = ({
         anchorX="center"
         anchorY="middle"
       >
-        Yaw: {yaw.toFixed(1)}°
+        Roll: {roll.toFixed(1)}° (Z)
       </Text>
     </group>
   );
@@ -147,10 +194,11 @@ const Gyroscope3D: React.FC<Gyroscope3DProps> = ({
         camera={{ position: [5, 5, 5], fov: 50 }}
         style={{ background: 'transparent' }}
       >
-        {/* Lighting */}
-        <ambientLight intensity={0.4} />
-        <directionalLight position={[10, 10, 5]} intensity={0.8} />
-        <pointLight position={[-10, -10, -5]} intensity={0.3} />
+        {/* Enhanced Lighting */}
+        <ambientLight intensity={0.6} />
+        <directionalLight position={[10, 10, 5]} intensity={1.0} />
+        <pointLight position={[-10, -10, -5]} intensity={0.5} />
+        <pointLight position={[5, -5, 5]} intensity={0.3} color="#14b8a6" />
         
         {/* 3D Scene */}
         <RotatingCube pitch={pitch} roll={roll} yaw={yaw} />

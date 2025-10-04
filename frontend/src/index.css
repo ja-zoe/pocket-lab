@@ -115,7 +115,7 @@
   
   /* Toast notification styles */
   .toast {
-    @apply fixed top-4 right-4 z-50 bg-gray-800 border border-gray-600 text-white px-4 py-3 rounded-lg shadow-lg animate-slide-up;
+    @apply fixed top-4 right-4 z-50 bg-gray-800 border border-gray-600 text-white px-4 py-3 rounded-lg shadow-lg animate-bounce;
   }
   
   .toast.success {

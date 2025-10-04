@@ -54,6 +54,7 @@ const DashboardPage: React.FC = () => {
   const [sensorData, setSensorData] = useState<SensorData[]>([]);
   const [currentData, setCurrentData] = useState<SensorData | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const isRunningRef = useRef(false);
 
   // Load initial data
   useEffect(() => {
@@ -101,10 +102,11 @@ const DashboardPage: React.FC = () => {
     try {
       await mockSensorAPI.startExperiment();
       setIsExperimentRunning(true);
+      isRunningRef.current = true;
       
       // Connect to WebSocket for real-time data
       wsRef.current = createMockWebSocket((data) => {
-        if (data.type === 'sensor_update') {
+        if (data.type === 'sensor_update' && isRunningRef.current) {
           const newData: SensorData = {
             timestamp: data.data.timestamp,
             temperature: data.data.temperature.value,
@@ -140,16 +142,24 @@ const DashboardPage: React.FC = () => {
 
   const stopExperiment = async () => {
     try {
-      await mockSensorAPI.stopExperiment();
-      setIsExperimentRunning(false);
+      // Stop data processing immediately
+      isRunningRef.current = false;
       
       // Close WebSocket connection
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
+      
+      await mockSensorAPI.stopExperiment();
+      setIsExperimentRunning(false);
+      
+      console.log('Experiment stopped - WebSocket closed and data processing halted');
     } catch (error) {
       console.error('Failed to stop experiment:', error);
+      // Still set experiment as stopped even if API call fails
+      isRunningRef.current = false;
+      setIsExperimentRunning(false);
     }
   };
 
@@ -180,6 +190,7 @@ const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     return () => {
+      isRunningRef.current = false;
       if (wsRef.current) {
         wsRef.current.close();
       }

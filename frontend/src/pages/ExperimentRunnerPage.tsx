@@ -283,16 +283,22 @@ const ExperimentRunnerPage: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <button
-            onClick={() => navigate('/experiments')}
-            className="flex items-center gap-2 text-teal-400 hover:text-teal-300 transition-colors"
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center gap-3 bg-gradient-to-r from-teal-600 to-green-600 hover:from-teal-700 hover:to-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-teal-500/25 hover:scale-105"
           >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Experiments
+            <ArrowLeft className="w-5 h-5" />
+            Back to Dashboard
           </button>
           
           <div className="text-center">
             <h1 className="text-2xl font-bold text-white">{template.title}</h1>
             <p className="text-gray-400">{template.category} • {template.difficulty}</p>
+            <button
+              onClick={() => navigate('/experiments')}
+              className="text-sm text-teal-400 hover:text-teal-300 transition-colors mt-1"
+            >
+              ← Back to Experiments
+            </button>
           </div>
 
           <div className="w-24"></div> {/* Spacer */}

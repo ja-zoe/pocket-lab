@@ -10,7 +10,8 @@ import {
   Users, 
   Target,
   Play,
-  BookOpen
+  BookOpen,
+  ArrowLeft
 } from 'lucide-react';
 import * as ExperimentData from '../data/experimentTemplates';
 
@@ -55,13 +56,25 @@ const ExperimentSelectionPage: React.FC = () => {
     <div className="min-h-screen bg-gray-900 pt-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-4">
-            🧪 Choose Your Experiment
-          </h1>
-          <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-            Select from our curated collection of science experiments designed to teach real-world concepts through hands-on data collection.
-          </p>
+        <div className="flex items-center justify-between mb-8">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center gap-3 bg-gradient-to-r from-teal-600 to-green-600 hover:from-teal-700 hover:to-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-teal-500/25 hover:scale-105"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Back to Dashboard
+          </button>
+          
+          <div className="text-center flex-1">
+            <h1 className="text-4xl font-bold text-white mb-4">
+              🧪 Choose Your Experiment
+            </h1>
+            <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+              Select from our curated collection of science experiments designed to teach real-world concepts through hands-on data collection.
+            </p>
+          </div>
+
+          <div className="w-32"></div> {/* Spacer */}
         </div>
 
         {/* Filters */}
@@ -200,15 +213,6 @@ const ExperimentSelectionPage: React.FC = () => {
           </div>
         )}
 
-        {/* Back to Dashboard */}
-        <div className="text-center mt-12">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="text-teal-400 hover:text-teal-300 font-medium transition-colors duration-200"
-          >
-            ← Back to Dashboard
-          </button>
-        </div>
       </div>
     </div>
   );

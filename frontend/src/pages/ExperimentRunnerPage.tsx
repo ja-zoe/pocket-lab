@@ -23,6 +23,7 @@ import { useSimpleSpikeFilter } from '../hooks/useSimpleSpikeFilter';
 import BME688Chart from '../components/BME688Chart';
 import AccelerationCombined from '../components/AccelerationCombined';
 import Gyroscope3D from '../components/Gyroscope3D';
+import { createWebSocket } from '../lib/mockAPI';
 
 // Function to determine which graphs to show based on experiment type
 const getRequiredGraphs = (experimentId: string) => {
@@ -72,12 +73,14 @@ const ExperimentRunnerPage: React.FC = () => {
   const [stepElapsedTime, setStepElapsedTime] = useState(0);
   const [experimentStartTime, setExperimentStartTime] = useState<number | null>(null);
   const [sensorData, setSensorData] = useState<SensorData[]>([]);
+  const [currentData, setCurrentData] = useState<SensorData | null>(null);
   const [, setStepData] = useState<{ [stepId: string]: SensorData[] }>({});
   const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
   const [conditionMet, setConditionMet] = useState(false);
   
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const maxDataPoints = 300; // Limit data points for smooth scrolling
 
   // Spike filter for data processing
   const {
@@ -87,26 +90,66 @@ const ExperimentRunnerPage: React.FC = () => {
     threshold: 2
   });
 
+  // Generate zero data when no real data is available
+  const generateZeroData = useCallback((count: number = 10) => {
+    const now = Date.now();
+    return Array.from({ length: count }, (_, i) => ({
+      timestamp: now - (count - i) * 1000,
+      time: now - (count - i) * 1000,
+      timeString: new Date(now - (count - i) * 1000).toLocaleTimeString(),
+      temperature: 0,
+      acceleration: { x: 0, y: 0, z: 0 },
+      gyroscope: { pitch: 0, roll: 0, yaw: 0 },
+      bme688: { temperature: 0, humidity: 0, pressure: 0, voc: 0 },
+      ultrasonic: { distance: 0 },
+      accelX: 0,
+      accelY: 0,
+      accelZ: 0,
+      // Flatten BME688 data for BME688Chart component
+      humidity: 0,
+      pressure: 0,
+      voc: 0
+    }));
+  }, []);
+
   // Transform data for AccelerationCombined component
   const transformedData = useMemo(() => {
-    if (!filteredData || filteredData.length === 0) return [];
+    if (!filteredData || filteredData.length === 0) {
+      return generateZeroData();
+    }
     return filteredData.map(item => ({
       ...item,
       time: item.timestamp,
-      timeString: new Date(item.timestamp).toLocaleTimeString()
+      timeString: new Date(item.timestamp).toLocaleTimeString(),
+      accelX: item.acceleration?.x || 0,
+      accelY: item.acceleration?.y || 0,
+      accelZ: item.acceleration?.z || 0
     }));
-  }, [filteredData]);
+  }, [filteredData, generateZeroData]);
+
+  // Generate zero data for charts when no real data
+  const chartData = useMemo(() => {
+    if (!filteredData || filteredData.length === 0) {
+      return generateZeroData();
+    }
+    // Flatten BME688 data for BME688Chart component
+    return filteredData.map(item => ({
+      ...item,
+      temperature: item.bme688?.temperature || 0,
+      humidity: item.bme688?.humidity || 0,
+      pressure: item.bme688?.pressure || 0,
+      voc: item.bme688?.voc || 0
+    }));
+  }, [filteredData, generateZeroData]);
 
   // Define functions before useEffects that use them
   const stopExperiment = useCallback(() => {
     setIsRunning(false);
-    // Clear both intervals when stopping
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
+    // Clear timer when stopping
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
+    // Keep WebSocket connection open for future experiments
   }, []);
 
   const nextStep = useCallback(() => {
@@ -138,8 +181,7 @@ const ExperimentRunnerPage: React.FC = () => {
     setExperimentStartTime(Date.now());
     setStepStartTime(Date.now());
     setStepElapsedTime(0);
-    // Clear previous data and start fresh
-    setSensorData([]);
+    // Keep real-time data flowing, just reset experiment state
     setStepData({});
     setCompletedSteps(new Set());
     setCurrentStepIndex(0);
@@ -194,49 +236,59 @@ const ExperimentRunnerPage: React.FC = () => {
     };
   }, [isRunning, stepStartTime]);
 
-  // Mock sensor data generation - only when experiment is running
+  // Connect to WebSocket for real-time data
   useEffect(() => {
-    if (isRunning) {
-      intervalRef.current = setInterval(() => {
-        const now = Date.now();
-        const newData: SensorData = {
-          timestamp: now,
-          temperature: 20 + Math.sin(now * 0.001) * 5 + Math.random() * 2,
-          acceleration: {
-            x: (Math.sin(now * 0.002) * 2 + Math.random() * 0.5) * 9.81,  // Convert g to m/s²
-            y: (Math.cos(now * 0.0015) * 1.5 + Math.random() * 0.3) * 9.81,  // Convert g to m/s²
-            z: (1 + Math.sin(now * 0.001) * 0.5 + Math.random() * 0.2) * 9.81  // Convert g to m/s²
-          },
-          gyroscope: {
-            pitch: (Math.sin(now * 0.001) * 0.5 + Math.random() * 0.1) * (Math.PI / 180),  // Convert dps to rad/s
-            roll: (Math.cos(now * 0.0008) * 0.3 + Math.random() * 0.08) * (Math.PI / 180),  // Convert dps to rad/s
-            yaw: (Math.sin(now * 0.0012) * 0.6 + Math.random() * 0.15) * (Math.PI / 180)   // Convert dps to rad/s
-          },
-          bme688: {
-            temperature: 20 + Math.sin(now * 0.001) * 5 + Math.random() * 2,
-            humidity: 50 + Math.sin(now * 0.0008) * 10 + Math.random() * 5,
-            pressure: 101300 + Math.sin(now * 0.0005) * 1000 + Math.random() * 100,
-            voc: 100 + Math.sin(now * 0.0007) * 20 + Math.random() * 10
-          },
-          ultrasonic: {
-            distance: 0.5 + Math.sin(now * 0.0015) * 0.4 + Math.random() * 0.1
-          }
-        };
+    // Connect to WebSocket immediately for real-time data
+    wsRef.current = createWebSocket((data) => {
+      console.log('WebSocket data received in experiment:', data);
+      try {
+        if (data && data.type === 'sensor_update' && data.data) {
+          const newData: SensorData = {
+            timestamp: data.data.timestamp || Date.now(),
+            temperature: data.data.temperature?.value || 0,
+            acceleration: {
+              x: data.data.acceleration?.x || 0,
+              y: data.data.acceleration?.y || 0,
+              z: data.data.acceleration?.z || 0
+            },
+            gyroscope: {
+              pitch: data.data.gyroscope?.pitch || 0,
+              roll: data.data.gyroscope?.roll || 0,
+              yaw: data.data.gyroscope?.yaw || 0
+            },
+            bme688: {
+              temperature: data.data.bme688?.temperature || 0,
+              humidity: data.data.bme688?.humidity || 0,
+              pressure: data.data.bme688?.pressure || 0,
+              voc: data.data.bme688?.voc || 0
+            },
+            ultrasonic: {
+              distance: data.data.ultrasonic?.distance || 0
+            }
+          };
 
-        setSensorData(prev => [...prev.slice(-100), newData]);
-      }, 100);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+          console.log('Processed new data in experiment:', newData);
+          setSensorData(prevData => {
+            const newDataArray = [newData, ...prevData].slice(0, maxDataPoints);
+            console.log('Updated sensor data array length in experiment:', newDataArray.length);
+            return newDataArray;
+          });
+
+          // Update current data
+          setCurrentData(newData);
+          console.log('Updated current data in experiment:', newData);
+        }
+      } catch (error) {
+        console.error('Error processing WebSocket data in experiment:', error);
       }
-    }
+    });
 
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+      if (wsRef.current) {
+        wsRef.current.close();
       }
     };
-  }, [isRunning]); // Run when isRunning changes
+  }, []); // Run once on mount
 
   // Check if step duration has been reached
   useEffect(() => {
@@ -254,10 +306,16 @@ const ExperimentRunnerPage: React.FC = () => {
 
   // Check step conditions
   useEffect(() => {
-    if (!template || !isRunning || sensorData.length === 0) return;
+    if (!template || !isRunning) return;
 
     const currentStep = template.steps[currentStepIndex];
     if (!currentStep.condition) return;
+
+    // If no data, condition is not met
+    if (sensorData.length === 0) {
+      setConditionMet(false);
+      return;
+    }
 
     const latestData = sensorData[sensorData.length - 1];
     let conditionSatisfied = false;
@@ -580,22 +638,41 @@ const ExperimentRunnerPage: React.FC = () => {
                 <>
                   {/* Environmental Data */}
                   {requiredGraphs.environmental && (
-                    <BME688Chart key={`env-${filteredData.length}`} data={filteredData} />
+                    <div className="relative">
+                      {sensorData.length === 0 && (
+                        <div className="absolute top-2 right-2 z-10 bg-yellow-600 text-white px-2 py-1 rounded text-xs">
+                          No Data - Showing Zero
+                        </div>
+                      )}
+                      <BME688Chart key={`env-${chartData.length}`} data={chartData} />
+                    </div>
                   )}
 
                   {/* Motion Data */}
                   {requiredGraphs.acceleration && (
-                    <AccelerationCombined key={`accel-${transformedData.length}`} data={transformedData} width={600} height={300} />
+                    <div className="relative">
+                      {sensorData.length === 0 && (
+                        <div className="absolute top-2 right-2 z-10 bg-yellow-600 text-white px-2 py-1 rounded text-xs">
+                          No Data - Showing Zero
+                        </div>
+                      )}
+                      <AccelerationCombined key={`accel-${transformedData.length}`} data={transformedData} width={600} height={300} />
+                    </div>
                   )}
 
                   {/* Gyroscope 3D */}
-                  {requiredGraphs.gyroscope && filteredData && filteredData.length > 0 && (
-                    <div key={`gyro-${filteredData.length}`} className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                  {requiredGraphs.gyroscope && (
+                    <div key={`gyro-${chartData.length}`} className="bg-gray-800 rounded-xl p-6 border border-gray-700 relative">
+                      {sensorData.length === 0 && (
+                        <div className="absolute top-2 right-2 z-10 bg-yellow-600 text-white px-2 py-1 rounded text-xs">
+                          No Data - Showing Zero
+                        </div>
+                      )}
                       <h3 className="text-lg font-semibold text-white mb-4">3D Gyroscope</h3>
                       <Gyroscope3D
-                        pitch={filteredData[filteredData.length - 1]?.gyroscope?.pitch || 0}
-                        roll={filteredData[filteredData.length - 1]?.gyroscope?.roll || 0}
-                        yaw={filteredData[filteredData.length - 1]?.gyroscope?.yaw || 0}
+                        pitch={chartData.length > 0 ? (chartData[chartData.length - 1]?.gyroscope?.pitch || 0) : 0}
+                        roll={chartData.length > 0 ? (chartData[chartData.length - 1]?.gyroscope?.roll || 0) : 0}
+                        yaw={chartData.length > 0 ? (chartData[chartData.length - 1]?.gyroscope?.yaw || 0) : 0}
                         width={600}
                         height={300}
                       />
@@ -603,12 +680,17 @@ const ExperimentRunnerPage: React.FC = () => {
                   )}
 
                   {/* Distance Chart */}
-                  {requiredGraphs.distance && filteredData && filteredData.length > 0 && (
-                    <div key={`distance-${filteredData.length}`} className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                  {requiredGraphs.distance && (
+                    <div key={`distance-${chartData.length}`} className="bg-gray-800 rounded-xl p-6 border border-gray-700 relative">
+                      {sensorData.length === 0 && (
+                        <div className="absolute top-2 right-2 z-10 bg-yellow-600 text-white px-2 py-1 rounded text-xs">
+                          No Data - Showing Zero
+                        </div>
+                      )}
                       <h3 className="text-lg font-semibold text-white mb-4">Distance Measurement</h3>
                       <div className="h-80">
                         <ResponsiveContainer width="100%" height="100%">
-                          <LineChart key={`distance-chart-${filteredData.length}`} data={filteredData}>
+                          <LineChart key={`distance-chart-${chartData.length}`} data={chartData}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                             <XAxis 
                               dataKey="timestamp"
@@ -634,7 +716,7 @@ const ExperimentRunnerPage: React.FC = () => {
                             />
                             <Line 
                               type="monotone" 
-                              dataKey="distance" 
+                              dataKey="ultrasonic.distance" 
                               stroke="#3B82F6" 
                               strokeWidth={2}
                               dot={false}

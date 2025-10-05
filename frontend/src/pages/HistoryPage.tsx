@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { 
   FlaskConical, 
-  ArrowLeft, 
   Download, 
   Calendar,
   Clock,
@@ -10,7 +10,9 @@ import {
   Activity,
   Trash2,
   X,
-  Filter
+  Filter,
+  BookOpen,
+  LogOut
 } from 'lucide-react';
 
 interface ExperimentHistory {
@@ -34,6 +36,8 @@ interface TimeframeSelection {
 }
 
 const HistoryPage: React.FC = () => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [experiments, setExperiments] = useState<ExperimentHistory[]>([]);
   const [showTimeframeModal, setShowTimeframeModal] = useState(false);
   const [selectedExperiment, setSelectedExperiment] = useState<ExperimentHistory | null>(null);
@@ -123,6 +127,15 @@ ${experiment.name},${experiment.date},${experiment.duration},${experiment.dataPo
     setShowTimeframeModal(false);
   };
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Failed to logout:', error);
+    }
+  };
+
   const handleTimeframeChange = (field: keyof TimeframeSelection, value: string | boolean) => {
     setTimeframeSelection(prev => ({
       ...prev,
@@ -136,24 +149,46 @@ ${experiment.name},${experiment.date},${experiment.duration},${experiment.dataPo
 
   return (
     <div className="min-h-screen bg-gray-900">
-      {/* Header */}
+      {/* Enhanced Header */}
       <header className="bg-gray-900/95 backdrop-blur-sm fixed top-0 left-0 right-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
-              <Link
-                to="/dashboard"
-                className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                <span>Back to Dashboard</span>
-              </Link>
-              
               <div className="flex items-center space-x-2">
-                <FlaskConical className="w-8 h-8 text-blue-500" />
+                <FlaskConical className="w-8 h-8 text-blue-500 hover:text-blue-400 transition-colors" />
                 <h1 className="text-2xl font-bold text-white">PocketLab</h1>
               </div>
-              <span className="text-sm text-gray-400">Experiment History</span>
+              <span className="text-sm text-gray-400 hidden sm:block">Experiment History</span>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <Link
+                to="/dashboard"
+                className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors hover-lift"
+              >
+                <BookOpen className="w-5 h-5" />
+                <span className="hidden sm:block">Dashboard</span>
+              </Link>
+              
+              <Link
+                to="/experiments"
+                className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors hover-lift"
+              >
+                <BookOpen className="w-5 h-5" />
+                <span className="hidden sm:block">Experiments</span>
+              </Link>
+              
+              <div className="flex items-center space-x-2 text-gray-300">
+                <span className="text-sm hidden sm:block">{user?.email}</span>
+              </div>
+              
+              <button
+                onClick={handleLogout}
+                className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors hover-lift"
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="hidden sm:block">Logout</span>
+              </button>
             </div>
           </div>
         </div>

@@ -12,70 +12,46 @@ interface Gyroscope3DProps {
   height?: number;
 }
 
-// 3D Cube component that rotates based on sensor data
-const RotatingCube: React.FC<{ pitch: number; roll: number; yaw: number; resetKey: number }> = ({ 
-  pitch, 
-  roll, 
-  yaw,
-  resetKey
-}) => {
+// Simple 3D Cube that directly mirrors gyroscope values
+const RotatingCube: React.FC<{ 
+  pitch: number; 
+  roll: number; 
+  yaw: number; 
+  resetKey: number;
+}> = ({ pitch, roll, yaw, resetKey }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const cumulativeRotation = useRef({ x: 0, y: 0, z: 0 });
-  const lastSensorValues = useRef({ pitch: 0, roll: 0, yaw: 0 });
-  const isFirstFrame = useRef(true);
 
-  // Reset cumulative rotation when resetKey changes
+  // Reset when resetKey changes
   React.useEffect(() => {
     cumulativeRotation.current = { x: 0, y: 0, z: 0 };
-    lastSensorValues.current = { pitch: pitch || 0, roll: roll || 0, yaw: yaw || 0 };
-    isFirstFrame.current = true;
-  }, [resetKey, pitch, roll, yaw]);
+    console.log('🔄 Reset triggered');
+  }, [resetKey]);
 
   useFrame((_, delta) => {
     if (meshRef.current) {
-      // MPU6050 rotation mapping with YXZ rotation order
-      // roll_rad → Z-axis rotation
-      // pitch_rad → X-axis rotation  
-      // yaw_rad → Y-axis rotation
+      // Simple approach: accumulate the raw gyroscope values directly
+      // These are angular velocity values, so we integrate them over time
       
-      // Values are already in radians, with fallback to 0
       const pitchRad = pitch || 0;
       const rollRad = roll || 0;
       const yawRad = yaw || 0;
       
-      if (isFirstFrame.current) {
-        // Initialize with current sensor values
-        lastSensorValues.current = { pitch: pitchRad, roll: rollRad, yaw: yawRad };
-        isFirstFrame.current = false;
-      } else {
-        // Calculate the difference from last frame (angular velocity)
-        const deltaPitch = pitchRad - lastSensorValues.current.pitch;
-        const deltaRoll = rollRad - lastSensorValues.current.roll;
-        const deltaYaw = yawRad - lastSensorValues.current.yaw;
-        
-        // Only accumulate if there's a meaningful change (avoid noise)
-        if (Math.abs(deltaPitch) > 0.001 || Math.abs(deltaRoll) > 0.001 || Math.abs(deltaYaw) > 0.001) {
-          // Accumulate the rotation changes
-          cumulativeRotation.current.x += deltaPitch;
-          cumulativeRotation.current.y += deltaYaw;
-          cumulativeRotation.current.z += deltaRoll;
-          
-          // Debug logging (remove after testing)
-          console.log('Gyro rotation:', {
-            deltas: { pitch: deltaPitch, roll: deltaRoll, yaw: deltaYaw },
-            cumulative: cumulativeRotation.current
-          });
-        }
-        
-        // Update last sensor values
-        lastSensorValues.current = { pitch: pitchRad, roll: rollRad, yaw: yawRad };
-      }
+      // Integrate angular velocity over time (delta is in seconds)
+      cumulativeRotation.current.x += pitchRad * delta;
+      cumulativeRotation.current.y += yawRad * delta;
+      cumulativeRotation.current.z += rollRad * delta;
       
-      // Apply cumulative rotation with smooth interpolation
-      const lerpFactor = Math.min(delta * 8, 1); // Faster interpolation for more responsive feel
-      meshRef.current.rotation.x = THREE.MathUtils.lerp(meshRef.current.rotation.x, cumulativeRotation.current.x, lerpFactor);
-      meshRef.current.rotation.y = THREE.MathUtils.lerp(meshRef.current.rotation.y, cumulativeRotation.current.y, lerpFactor);
-      meshRef.current.rotation.z = THREE.MathUtils.lerp(meshRef.current.rotation.z, cumulativeRotation.current.z, lerpFactor);
+      // Apply rotation directly
+      meshRef.current.rotation.x = cumulativeRotation.current.x;
+      meshRef.current.rotation.y = cumulativeRotation.current.y;
+      meshRef.current.rotation.z = cumulativeRotation.current.z;
+      
+      // Debug logging (remove after testing)
+      if (Math.abs(pitchRad) > 0.01 || Math.abs(rollRad) > 0.01 || Math.abs(yawRad) > 0.01) {
+        console.log('🎯 Gyro values:', { pitch: pitchRad, roll: rollRad, yaw: yawRad });
+        console.log('🎯 Cumulative:', cumulativeRotation.current);
+      }
     }
   });
 
@@ -105,25 +81,24 @@ const RotatingCube: React.FC<{ pitch: number; roll: number; yaw: number; resetKe
       </mesh>
       
       {/* Corner markers for better rotation visibility */}
-      {/* Red corner markers */}
       <mesh position={[1.1, 1.1, 1.1]}>
         <sphereGeometry args={[0.1]} />
         <meshBasicMaterial color="#ef4444" />
       </mesh>
       <mesh position={[-1.1, 1.1, 1.1]}>
         <sphereGeometry args={[0.1]} />
-        <meshBasicMaterial color="#ef4444" />
+        <meshBasicMaterial color="#22c55e" />
       </mesh>
       <mesh position={[1.1, -1.1, 1.1]}>
         <sphereGeometry args={[0.1]} />
-        <meshBasicMaterial color="#ef4444" />
+        <meshBasicMaterial color="#3b82f6" />
       </mesh>
       <mesh position={[1.1, 1.1, -1.1]}>
         <sphereGeometry args={[0.1]} />
-        <meshBasicMaterial color="#ef4444" />
+        <meshBasicMaterial color="#eab308" />
       </mesh>
       
-      {/* Axis indicators - MPU6050 mapping */}
+      {/* Axis indicators */}
       {/* X-axis (Pitch) - Red */}
       <mesh position={[1.5, 0, 0]}>
         <cylinderGeometry args={[0.05, 0.05, 0.3]} />
@@ -173,7 +148,7 @@ const AxisLabels: React.FC<{ pitch: number; roll: number; yaw: number }> = ({
         anchorX="center"
         anchorY="middle"
       >
-        Pitch: {pitch.toFixed(3)} rad (X)
+        Pitch: {pitch.toFixed(3)} rad/s
       </Text>
       
       {/* Yaw label (Y-axis) */}
@@ -184,7 +159,7 @@ const AxisLabels: React.FC<{ pitch: number; roll: number; yaw: number }> = ({
         anchorX="center"
         anchorY="middle"
       >
-        Yaw: {yaw.toFixed(3)} rad (Y)
+        Yaw: {yaw.toFixed(3)} rad/s
       </Text>
       
       {/* Roll label (Z-axis) */}
@@ -195,7 +170,7 @@ const AxisLabels: React.FC<{ pitch: number; roll: number; yaw: number }> = ({
         anchorX="center"
         anchorY="middle"
       >
-        Roll: {roll.toFixed(3)} rad (Z)
+        Roll: {roll.toFixed(3)} rad/s
       </Text>
     </group>
   );
@@ -225,38 +200,45 @@ const Gyroscope3D: React.FC<Gyroscope3DProps> = ({
         <RotateCcw className="w-4 h-4" />
       </button>
       
+      {/* Debug Info */}
+      <div className="absolute top-2 left-2 z-10 bg-black/50 text-white p-2 rounded text-xs">
+        <div>Pitch: {pitch.toFixed(3)} rad/s</div>
+        <div>Roll: {roll.toFixed(3)} rad/s</div>
+        <div>Yaw: {yaw.toFixed(3)} rad/s</div>
+      </div>
+      
       <div style={{ width, height }} className="border border-gray-600 rounded-lg overflow-hidden hover:border-gray-500 transition-all duration-200 shadow-sm">
-      <Canvas
-        camera={{ position: [5, 5, 5], fov: 50 }}
-        style={{ background: 'transparent' }}
-      >
-        {/* Enhanced Lighting */}
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[10, 10, 5]} intensity={1.0} />
-        <pointLight position={[-10, -10, -5]} intensity={0.5} />
-        <pointLight position={[5, -5, 5]} intensity={0.3} color="#14b8a6" />
-        
-        {/* 3D Scene */}
-        <RotatingCube pitch={pitch} roll={roll} yaw={yaw} resetKey={resetKey} />
-        <AxisLabels pitch={pitch} roll={roll} yaw={yaw} />
-        
-        {/* Grid helper for reference */}
-        <gridHelper args={[10, 10, '#374151', '#374151']} />
-        
-        {/* Orbit controls for mouse interaction */}
-        <OrbitControls
-          enablePan={false}
-          enableZoom={true}
-          enableRotate={true}
-          minDistance={3}
-          maxDistance={15}
-          autoRotate={false}
-        />
-      </Canvas>
-    </div>
+        <Canvas
+          key={resetKey}
+          camera={{ position: [5, 5, 5], fov: 50 }}
+          style={{ background: 'transparent' }}
+        >
+          {/* Enhanced Lighting */}
+          <ambientLight intensity={0.6} />
+          <directionalLight position={[10, 10, 5]} intensity={1.0} />
+          <pointLight position={[-10, -10, -5]} intensity={0.5} />
+          <pointLight position={[5, -5, 5]} intensity={0.3} color="#14b8a6" />
+          
+          {/* 3D Scene */}
+          <RotatingCube pitch={pitch} roll={roll} yaw={yaw} resetKey={resetKey} />
+          <AxisLabels pitch={pitch} roll={roll} yaw={yaw} />
+          
+          {/* Grid helper for reference */}
+          <gridHelper args={[10, 10, '#374151', '#374151']} />
+          
+          {/* Orbit controls for mouse interaction */}
+          <OrbitControls 
+            enablePan={true}
+            enableZoom={true}
+            enableRotate={true}
+            minDistance={3}
+            maxDistance={15}
+            autoRotate={false}
+          />
+        </Canvas>
+      </div>
     </div>
   );
 };
 
 export default Gyroscope3D;
-

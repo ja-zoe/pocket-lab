@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { MockDataProvider } from './context/MockDataContext';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import HistoryPage from './pages/HistoryPage';
@@ -15,9 +16,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <div className="min-h-screen bg-lab-dark">
-          <Routes>
+      <MockDataProvider>
+        <Router>
+          <div className="min-h-screen bg-lab-dark">
+            <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route 
               path="/dashboard" 
@@ -55,6 +57,7 @@ function App() {
           </Routes>
         </div>
       </Router>
+      </MockDataProvider>
     </AuthProvider>
   );
 }

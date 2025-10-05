@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useMockData } from '../context/MockDataContext';
 import { mockSensorAPI, createWebSocket } from '../lib/mockAPI';
+import { mockDataService } from '../lib/mockDataService';
+import MockDataToggle from '../components/MockDataToggle';
 import { 
   FlaskConical,
   Play,
@@ -32,6 +35,7 @@ import type { SensorData } from '../types/sensorData';
 
 const DashboardPage: React.FC = () => {
   const { user, logout } = useAuth();
+  const { isMockDataEnabled } = useMockData();
   const navigate = useNavigate();
   const [isExperimentRunning, setIsExperimentRunning] = useState(false);
   const [sensorData, setSensorData] = useState<SensorData[]>([]);
@@ -60,34 +64,44 @@ const DashboardPage: React.FC = () => {
     return () => clearInterval(interval);
   }, [isExperimentRunning, sessionStartTime]);
 
-  // Connect to WebSocket for real-time data (no initial mock data)
+  // Connect to WebSocket for real-time data or use mock data
   useEffect(() => {
-
-    // Connect to WebSocket immediately for real-time data
-    wsRef.current = createWebSocket((data) => {
+    if (isMockDataEnabled) {
+      // Use mock data service
+      mockDataService.enable((data) => {
+        console.log('Mock data received:', data);
+        setSensorData(prevData => {
+          const newDataArray = [data, ...prevData].slice(0, maxDataPoints);
+          return newDataArray;
+        });
+        setCurrentData(data);
+      });
+    } else {
+      // Connect to WebSocket for real-time data
+      wsRef.current = createWebSocket((data) => {
       console.log('WebSocket data received:', data);
       try {
         if (data && data.type === 'sensor_update' && data.data) {
           const newData: SensorData = {
             timestamp: data.data.timestamp || Date.now(),
             temperature: data.data.temperature?.value || 0,
-            acceleration: {
+          acceleration: {
               x: data.data.acceleration?.x || 0,
               y: data.data.acceleration?.y || 0,
               z: data.data.acceleration?.z || 0
-            },
-            gyroscope: {
+          },
+          gyroscope: {
               pitch: data.data.gyroscope?.pitch || 0,
               roll: data.data.gyroscope?.roll || 0,
               yaw: data.data.gyroscope?.yaw || 0
-            },
-            bme688: {
+          },
+          bme688: {
               temperature: data.data.bme688?.temperature || 0,
               humidity: data.data.bme688?.humidity || 0,
               pressure: data.data.bme688?.pressure || 0,
               voc: data.data.bme688?.voc || 0
-            },
-            ultrasonic: {
+          },
+          ultrasonic: {
               distance: data.data.ultrasonic?.distance || 0
             }
           };
@@ -107,7 +121,17 @@ const DashboardPage: React.FC = () => {
         console.error('Error processing WebSocket data:', error);
       }
     });
-  }, []);
+
+    // Cleanup function
+    return () => {
+      if (isMockDataEnabled) {
+        mockDataService.disable();
+      } else if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, [isMockDataEnabled]);
 
   const startExperiment = async () => {
     try {
@@ -658,7 +682,7 @@ const DashboardPage: React.FC = () => {
   // Custom tooltip component for better styling
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
-      return (
+  return (
         <div className="bg-gray-800 border border-gray-600 rounded-lg p-3 shadow-lg">
           <p className="text-white font-medium mb-2 text-sm">{label}</p>
           {payload.map((entry: any, index: number) => (
@@ -710,6 +734,7 @@ const DashboardPage: React.FC = () => {
             </div>
             
             <div className="flex items-center space-x-4">
+              <MockDataToggle />
               <Link
                 to="/experiments"
                 className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors hover-lift"

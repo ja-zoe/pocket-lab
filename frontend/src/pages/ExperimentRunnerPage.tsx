@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useMockData } from '../context/MockDataContext';
+import { mockDataService } from '../lib/mockDataService';
+import MockDataToggle from '../components/MockDataToggle';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { 
   Play, 
@@ -64,6 +67,7 @@ const getRequiredGraphs = (experimentId: string) => {
 
 const ExperimentRunnerPage: React.FC = () => {
   const { user, logout } = useAuth();
+  const { isMockDataEnabled } = useMockData();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [template, setTemplate] = useState<ExperimentData.ExperimentTemplate | null>(null);
@@ -235,58 +239,72 @@ const ExperimentRunnerPage: React.FC = () => {
     };
   }, [isRunning, stepStartTime]);
 
-  // Connect to WebSocket for real-time data
+  // Connect to WebSocket for real-time data or use mock data
   useEffect(() => {
-    // Connect to WebSocket immediately for real-time data
-    wsRef.current = createWebSocket((data) => {
-      console.log('WebSocket data received in experiment:', data);
-      try {
-        if (data && data.type === 'sensor_update' && data.data) {
-          const newData: SensorData = {
-            timestamp: data.data.timestamp || Date.now(),
-            temperature: data.data.temperature?.value || 0,
-            acceleration: {
-              x: data.data.acceleration?.x || 0,
-              y: data.data.acceleration?.y || 0,
-              z: data.data.acceleration?.z || 0
-            },
-            gyroscope: {
-              pitch: data.data.gyroscope?.pitch || 0,
-              roll: data.data.gyroscope?.roll || 0,
-              yaw: data.data.gyroscope?.yaw || 0
-            },
-            bme688: {
-              temperature: data.data.bme688?.temperature || 0,
-              humidity: data.data.bme688?.humidity || 0,
-              pressure: data.data.bme688?.pressure || 0,
-              voc: data.data.bme688?.voc || 0
-            },
-            ultrasonic: {
-              distance: data.data.ultrasonic?.distance || 0
-            }
-          };
+    if (isMockDataEnabled) {
+      // Use mock data service
+      mockDataService.enable((data) => {
+        console.log('Mock data received in experiment:', data);
+        setSensorData(prevData => {
+          const newDataArray = [data, ...prevData].slice(0, maxDataPoints);
+          return newDataArray;
+        });
+      });
+    } else {
+      // Connect to WebSocket for real-time data
+      wsRef.current = createWebSocket((data) => {
+        console.log('WebSocket data received in experiment:', data);
+        try {
+          if (data && data.type === 'sensor_update' && data.data) {
+            const newData: SensorData = {
+              timestamp: data.data.timestamp || Date.now(),
+              temperature: data.data.temperature?.value || 0,
+              acceleration: {
+                x: data.data.acceleration?.x || 0,
+                y: data.data.acceleration?.y || 0,
+                z: data.data.acceleration?.z || 0
+              },
+              gyroscope: {
+                pitch: data.data.gyroscope?.pitch || 0,
+                roll: data.data.gyroscope?.roll || 0,
+                yaw: data.data.gyroscope?.yaw || 0
+              },
+              bme688: {
+                temperature: data.data.bme688?.temperature || 0,
+                humidity: data.data.bme688?.humidity || 0,
+                pressure: data.data.bme688?.pressure || 0,
+                voc: data.data.bme688?.voc || 0
+              },
+              ultrasonic: {
+                distance: data.data.ultrasonic?.distance || 0
+              }
+            };
 
-          console.log('Processed new data in experiment:', newData);
-          setSensorData(prevData => {
-            const newDataArray = [newData, ...prevData].slice(0, maxDataPoints);
-            console.log('Updated sensor data array length in experiment:', newDataArray.length);
-            return newDataArray;
-          });
+            console.log('Processed new data in experiment:', newData);
+            setSensorData(prevData => {
+              const newDataArray = [newData, ...prevData].slice(0, maxDataPoints);
+              console.log('Updated sensor data array length in experiment:', newDataArray.length);
+              return newDataArray;
+            });
 
-          // Update current data
-          console.log('Updated current data in experiment:', newData);
+            // Update current data
+            console.log('Updated current data in experiment:', newData);
+          }
+        } catch (error) {
+          console.error('Error processing WebSocket data in experiment:', error);
         }
-      } catch (error) {
-        console.error('Error processing WebSocket data in experiment:', error);
-      }
-    });
+      });
+    }
 
     return () => {
-      if (wsRef.current) {
+      if (isMockDataEnabled) {
+        mockDataService.disable();
+      } else if (wsRef.current) {
         wsRef.current.close();
+        wsRef.current = null;
       }
     };
-  }, []); // Run once on mount
+  }, [isMockDataEnabled]); // Re-run when mock data mode changes
 
   // Check if step duration has been reached
   useEffect(() => {
@@ -416,6 +434,7 @@ const ExperimentRunnerPage: React.FC = () => {
             </div>
             
             <div className="flex items-center space-x-4">
+              <MockDataToggle />
               <Link
                 to="/dashboard"
                 className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors hover-lift"

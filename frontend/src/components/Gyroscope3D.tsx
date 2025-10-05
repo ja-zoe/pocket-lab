@@ -1,6 +1,7 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text } from '@react-three/drei';
+import { RotateCcw } from 'lucide-react';
 import * as THREE from 'three';
 
 interface Gyroscope3DProps {
@@ -12,50 +13,69 @@ interface Gyroscope3DProps {
 }
 
 // 3D Cube component that rotates based on sensor data
-const RotatingCube: React.FC<{ pitch: number; roll: number; yaw: number }> = ({ 
+const RotatingCube: React.FC<{ pitch: number; roll: number; yaw: number; resetKey: number }> = ({ 
   pitch, 
   roll, 
-  yaw 
+  yaw,
+  resetKey
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
-  const targetRotation = useRef({ x: 0, y: 0, z: 0 });
+  const cumulativeRotation = useRef({ x: 0, y: 0, z: 0 });
+  const lastSensorValues = useRef({ pitch: 0, roll: 0, yaw: 0 });
+  const isFirstFrame = useRef(true);
 
-  useFrame((state, delta) => {
+  // Reset cumulative rotation when resetKey changes
+  React.useEffect(() => {
+    cumulativeRotation.current = { x: 0, y: 0, z: 0 };
+    lastSensorValues.current = { pitch: pitch || 0, roll: roll || 0, yaw: yaw || 0 };
+    isFirstFrame.current = true;
+  }, [resetKey, pitch, roll, yaw]);
+
+  useFrame((_, delta) => {
     if (meshRef.current) {
       // MPU6050 rotation mapping with YXZ rotation order
       // roll_rad → Z-axis rotation
       // pitch_rad → X-axis rotation  
       // yaw_rad → Y-axis rotation
       
-      // Values are already in radians
-      const pitchRad = pitch;
-      const rollRad = roll;
-      const yawRad = yaw;
+      // Values are already in radians, with fallback to 0
+      const pitchRad = pitch || 0;
+      const rollRad = roll || 0;
+      const yawRad = yaw || 0;
       
-      // Update target rotation
-      targetRotation.current.x = pitchRad;
-      targetRotation.current.y = yawRad;
-      targetRotation.current.z = rollRad;
-      
-      // Smooth interpolation to target rotation
-      const lerpFactor = Math.min(delta * 5, 1); // Smooth interpolation
-      meshRef.current.rotation.x = THREE.MathUtils.lerp(meshRef.current.rotation.x, targetRotation.current.x, lerpFactor);
-      meshRef.current.rotation.y = THREE.MathUtils.lerp(meshRef.current.rotation.y, targetRotation.current.y, lerpFactor);
-      meshRef.current.rotation.z = THREE.MathUtils.lerp(meshRef.current.rotation.z, targetRotation.current.z, lerpFactor);
-      
-      // Debug: Log rotation values every 2 seconds
-      if (Math.floor(state.clock.elapsedTime) % 2 === 0 && Math.floor(state.clock.elapsedTime) !== 0) {
-        console.log('Gyroscope rotation:', { 
-          pitch: pitch.toFixed(1), 
-          roll: roll.toFixed(1), 
-          yaw: yaw.toFixed(1),
-          currentRotation: {
-            x: (meshRef.current.rotation.x * 180 / Math.PI).toFixed(1),
-            y: (meshRef.current.rotation.y * 180 / Math.PI).toFixed(1),
-            z: (meshRef.current.rotation.z * 180 / Math.PI).toFixed(1)
-          }
-        });
+      if (isFirstFrame.current) {
+        // Initialize with current sensor values
+        lastSensorValues.current = { pitch: pitchRad, roll: rollRad, yaw: yawRad };
+        isFirstFrame.current = false;
+      } else {
+        // Calculate the difference from last frame (angular velocity)
+        const deltaPitch = pitchRad - lastSensorValues.current.pitch;
+        const deltaRoll = rollRad - lastSensorValues.current.roll;
+        const deltaYaw = yawRad - lastSensorValues.current.yaw;
+        
+        // Only accumulate if there's a meaningful change (avoid noise)
+        if (Math.abs(deltaPitch) > 0.001 || Math.abs(deltaRoll) > 0.001 || Math.abs(deltaYaw) > 0.001) {
+          // Accumulate the rotation changes
+          cumulativeRotation.current.x += deltaPitch;
+          cumulativeRotation.current.y += deltaYaw;
+          cumulativeRotation.current.z += deltaRoll;
+          
+          // Debug logging (remove after testing)
+          console.log('Gyro rotation:', {
+            deltas: { pitch: deltaPitch, roll: deltaRoll, yaw: deltaYaw },
+            cumulative: cumulativeRotation.current
+          });
+        }
+        
+        // Update last sensor values
+        lastSensorValues.current = { pitch: pitchRad, roll: rollRad, yaw: yawRad };
       }
+      
+      // Apply cumulative rotation with smooth interpolation
+      const lerpFactor = Math.min(delta * 8, 1); // Faster interpolation for more responsive feel
+      meshRef.current.rotation.x = THREE.MathUtils.lerp(meshRef.current.rotation.x, cumulativeRotation.current.x, lerpFactor);
+      meshRef.current.rotation.y = THREE.MathUtils.lerp(meshRef.current.rotation.y, cumulativeRotation.current.y, lerpFactor);
+      meshRef.current.rotation.z = THREE.MathUtils.lerp(meshRef.current.rotation.z, cumulativeRotation.current.z, lerpFactor);
     }
   });
 
@@ -188,8 +208,24 @@ const Gyroscope3D: React.FC<Gyroscope3DProps> = ({
   width = 400, 
   height = 400 
 }) => {
+  const [resetKey, setResetKey] = useState(0);
+
+  const handleReset = () => {
+    setResetKey(prev => prev + 1);
+  };
+
   return (
-    <div style={{ width, height }} className="border border-gray-600 rounded-lg overflow-hidden hover:border-gray-500 transition-all duration-200 shadow-sm">
+    <div className="relative">
+      {/* Reset Button */}
+      <button
+        onClick={handleReset}
+        className="absolute top-2 right-2 z-10 bg-gray-800 hover:bg-gray-700 text-white p-2 rounded-lg border border-gray-600 hover:border-gray-500 transition-all duration-200 shadow-sm"
+        title="Reset rotation to initial position"
+      >
+        <RotateCcw className="w-4 h-4" />
+      </button>
+      
+      <div style={{ width, height }} className="border border-gray-600 rounded-lg overflow-hidden hover:border-gray-500 transition-all duration-200 shadow-sm">
       <Canvas
         camera={{ position: [5, 5, 5], fov: 50 }}
         style={{ background: 'transparent' }}
@@ -201,7 +237,7 @@ const Gyroscope3D: React.FC<Gyroscope3DProps> = ({
         <pointLight position={[5, -5, 5]} intensity={0.3} color="#14b8a6" />
         
         {/* 3D Scene */}
-        <RotatingCube pitch={pitch} roll={roll} yaw={yaw} />
+        <RotatingCube pitch={pitch} roll={roll} yaw={yaw} resetKey={resetKey} />
         <AxisLabels pitch={pitch} roll={roll} yaw={yaw} />
         
         {/* Grid helper for reference */}
@@ -217,6 +253,7 @@ const Gyroscope3D: React.FC<Gyroscope3DProps> = ({
           autoRotate={false}
         />
       </Canvas>
+    </div>
     </div>
   );
 };

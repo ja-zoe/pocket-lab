@@ -13,8 +13,7 @@ type ViewType = 'timeSeries' | '3d';
 
 const AccelerationCombined: React.FC<AccelerationCombinedProps> = ({ 
   data, 
-  width = 600, 
-  height = 300 
+  width = 600
 }) => {
   const [selectedView, setSelectedView] = useState<ViewType>('timeSeries');
 
@@ -34,6 +33,7 @@ const AccelerationCombined: React.FC<AccelerationCombinedProps> = ({
   };
 
   const chartData = useMemo(() => {
+    if (!data || data.length === 0) return [];
     return data.map(item => ({
       timestamp: item.time, // Keep original timestamp
       timeString: item.timeString, // For display
@@ -45,7 +45,7 @@ const AccelerationCombined: React.FC<AccelerationCombinedProps> = ({
   }, [data]);
 
   const currentConfig = viewConfig[selectedView];
-  const currentData = data[data.length - 1] || { accelX: 0, accelY: 0, accelZ: 0 };
+  const currentData = (data && data.length > 0) ? data[data.length - 1] : { accelX: 0, accelY: 0, accelZ: 0 };
 
   // Custom tooltip for time series
   const CustomTooltip = ({ active, payload, label }: any) => {

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { mockAuth } from '../lib/mockAPI';
+import { authService } from '../lib/mockAPI';
 
 // Mock user type
 interface User {
@@ -33,50 +33,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    mockAuth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    const { data: { subscription } } = mockAuth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
+    // Check for existing session on mount
+    const token = localStorage.getItem('auth-token');
+    if (token) {
+      // In a real app, you'd validate the token with the backend
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+      setUser(user);
+    }
+    setLoading(false);
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await mockAuth.signInWithPassword(email, password);
+    const { data, error } = await authService.signInWithPassword(email, password);
     if (error) throw error;
     // Store token for session persistence
-    localStorage.setItem('mock-token', 'mock-access-token');
+    localStorage.setItem('auth-token', data.session.access_token);
+    localStorage.setItem('user', JSON.stringify(data.user));
     // Update user state immediately
     setUser(data.user);
   };
 
   const signUp = async (email: string, password: string) => {
-    const { data, error } = await mockAuth.signUp(email, password);
+    const { data, error } = await authService.signUp(email, password);
     if (error) throw error;
     // Store token for session persistence
-    localStorage.setItem('mock-token', 'mock-access-token');
+    localStorage.setItem('auth-token', data.session.access_token);
+    localStorage.setItem('user', JSON.stringify(data.user));
     // Update user state immediately
     setUser(data.user);
   };
 
   const signInWithGoogle = async () => {
-    const { data, error } = await mockAuth.signInWithOAuth();
+    const { data, error } = await authService.signInWithOAuth();
     if (error) throw error;
     // Store token for session persistence
-    localStorage.setItem('mock-token', 'mock-google-token');
+    localStorage.setItem('auth-token', data.session.access_token);
+    localStorage.setItem('user', JSON.stringify(data.user));
     // Update user state immediately
     setUser(data.user);
   };
 
   const logout = async () => {
-    const { error } = await mockAuth.signOut();
-    if (error) throw error;
     // Clear stored token
-    localStorage.removeItem('mock-token');
+    localStorage.removeItem('auth-token');
+    localStorage.removeItem('user');
+    setUser(null);
   };
 
   const value = {
@@ -90,7 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };

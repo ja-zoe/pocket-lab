@@ -176,19 +176,22 @@ const ExperimentSummary: React.FC<ExperimentSummaryProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">Range</span>
                 <span className="text-sm text-white">
-                  {summary.statistics.temperature.min.toFixed(1)} - {summary.statistics.temperature.max.toFixed(1)}°C
+                  {typeof summary.statistics?.temperature?.min === 'number' ? summary.statistics.temperature.min.toFixed(1) : summary.statistics?.temperature?.min || 'N/A'} - {typeof summary.statistics?.temperature?.max === 'number' ? summary.statistics.temperature.max.toFixed(1) : summary.statistics?.temperature?.max || 'N/A'}°C
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">Average</span>
-                <span className="text-sm text-white">{summary.statistics.temperature.avg.toFixed(1)}°C</span>
+                <span className="text-sm text-white">{typeof summary.statistics?.temperature?.avg === 'number' ? summary.statistics.temperature.avg.toFixed(1) : summary.statistics?.temperature?.avg || 'N/A'}°C</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">Change</span>
                 <div className="flex items-center space-x-1">
-                  {getChangeIcon(summary.statistics.temperature.change)}
+                  {getChangeIcon(typeof summary.statistics?.temperature?.change === 'number' ? summary.statistics.temperature.change : 0)}
                   <span className="text-sm text-white">
-                    {summary.statistics.temperature.change > 0 ? '+' : ''}{summary.statistics.temperature.change.toFixed(1)}°C
+                    {typeof summary.statistics?.temperature?.change === 'number' ? 
+                      `${(summary.statistics.temperature.change > 0 ? '+' : '')}${summary.statistics.temperature.change.toFixed(1)}°C` : 
+                      summary.statistics?.temperature?.change || 'N/A'
+                    }
                   </span>
                 </div>
               </div>
@@ -205,19 +208,22 @@ const ExperimentSummary: React.FC<ExperimentSummaryProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">Range</span>
                 <span className="text-sm text-white">
-                  {(summary.statistics.pressure.min/100).toFixed(1)} - {(summary.statistics.pressure.max/100).toFixed(1)} hPa
+                  {typeof summary.statistics?.pressure?.min === 'number' ? (summary.statistics.pressure.min/100).toFixed(1) : summary.statistics?.pressure?.min || 'N/A'} - {typeof summary.statistics?.pressure?.max === 'number' ? (summary.statistics.pressure.max/100).toFixed(1) : summary.statistics?.pressure?.max || 'N/A'} hPa
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">Average</span>
-                <span className="text-sm text-white">{(summary.statistics.pressure.avg/100).toFixed(1)} hPa</span>
+                <span className="text-sm text-white">{typeof summary.statistics?.pressure?.avg === 'number' ? (summary.statistics.pressure.avg/100).toFixed(1) : summary.statistics?.pressure?.avg || 'N/A'} hPa</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">Change</span>
                 <div className="flex items-center space-x-1">
-                  {getChangeIcon(summary.statistics.pressure.change)}
+                  {getChangeIcon(typeof summary.statistics?.pressure?.change === 'number' ? summary.statistics.pressure.change : 0)}
                   <span className="text-sm text-white">
-                    {summary.statistics.pressure.change > 0 ? '+' : ''}{(summary.statistics.pressure.change/100).toFixed(1)} hPa
+                    {typeof summary.statistics?.pressure?.change === 'number' ? 
+                      `${(summary.statistics.pressure.change > 0 ? '+' : '')}${(summary.statistics.pressure.change/100).toFixed(1)} hPa` : 
+                      summary.statistics?.pressure?.change || 'N/A'
+                    }
                   </span>
                 </div>
               </div>
@@ -234,19 +240,22 @@ const ExperimentSummary: React.FC<ExperimentSummaryProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">Range</span>
                 <span className="text-sm text-white">
-                  {summary.statistics.humidity.min.toFixed(1)} - {summary.statistics.humidity.max.toFixed(1)}%
+                  {typeof summary.statistics?.humidity?.min === 'number' ? summary.statistics.humidity.min.toFixed(1) : summary.statistics?.humidity?.min || 'N/A'} - {typeof summary.statistics?.humidity?.max === 'number' ? summary.statistics.humidity.max.toFixed(1) : summary.statistics?.humidity?.max || 'N/A'}%
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">Average</span>
-                <span className="text-sm text-white">{summary.statistics.humidity.avg.toFixed(1)}%</span>
+                <span className="text-sm text-white">{typeof summary.statistics?.humidity?.avg === 'number' ? summary.statistics.humidity.avg.toFixed(1) : summary.statistics?.humidity?.avg || 'N/A'}%</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">Change</span>
                 <div className="flex items-center space-x-1">
-                  {getChangeIcon(summary.statistics.humidity.change)}
+                  {getChangeIcon(typeof summary.statistics?.humidity?.change === 'number' ? summary.statistics.humidity.change : 0)}
                   <span className="text-sm text-white">
-                    {summary.statistics.humidity.change > 0 ? '+' : ''}{summary.statistics.humidity.change.toFixed(1)}%
+                    {typeof summary.statistics?.humidity?.change === 'number' ? 
+                      `${(summary.statistics.humidity.change > 0 ? '+' : '')}${summary.statistics.humidity.change.toFixed(1)}%` : 
+                      summary.statistics?.humidity?.change || 'N/A'
+                    }
                   </span>
                 </div>
               </div>
@@ -262,15 +271,15 @@ const ExperimentSummary: React.FC<ExperimentSummaryProps> = ({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">X-axis</span>
-                <span className="text-sm text-white">{summary.statistics.acceleration.x.avg.toFixed(1)} m/s²</span>
+                <span className="text-sm text-white">{typeof summary.statistics?.acceleration?.x?.avg === 'number' ? summary.statistics.acceleration.x.avg.toFixed(1) : summary.statistics?.acceleration?.x?.avg || 'N/A'} m/s²</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">Y-axis</span>
-                <span className="text-sm text-white">{summary.statistics.acceleration.y.avg.toFixed(1)} m/s²</span>
+                <span className="text-sm text-white">{typeof summary.statistics?.acceleration?.y?.avg === 'number' ? summary.statistics.acceleration.y.avg.toFixed(1) : summary.statistics?.acceleration?.y?.avg || 'N/A'} m/s²</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">Z-axis</span>
-                <span className="text-sm text-white">{summary.statistics.acceleration.z.avg.toFixed(1)} m/s²</span>
+                <span className="text-sm text-white">{typeof summary.statistics?.acceleration?.z?.avg === 'number' ? summary.statistics.acceleration.z.avg.toFixed(1) : summary.statistics?.acceleration?.z?.avg || 'N/A'} m/s²</span>
               </div>
             </div>
           </div>
@@ -285,19 +294,22 @@ const ExperimentSummary: React.FC<ExperimentSummaryProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">Range</span>
                 <span className="text-sm text-white">
-                  {summary.statistics.distance.min.toFixed(2)} - {summary.statistics.distance.max.toFixed(2)} m
+                  {typeof summary.statistics?.distance?.min === 'number' ? summary.statistics.distance.min.toFixed(2) : summary.statistics?.distance?.min || 'N/A'} - {typeof summary.statistics?.distance?.max === 'number' ? summary.statistics.distance.max.toFixed(2) : summary.statistics?.distance?.max || 'N/A'} m
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">Average</span>
-                <span className="text-sm text-white">{summary.statistics.distance.avg.toFixed(2)} m</span>
+                <span className="text-sm text-white">{typeof summary.statistics?.distance?.avg === 'number' ? summary.statistics.distance.avg.toFixed(2) : summary.statistics?.distance?.avg || 'N/A'} m</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-gray-400">Change</span>
                 <div className="flex items-center space-x-1">
-                  {getChangeIcon(summary.statistics.distance.change)}
+                  {getChangeIcon(typeof summary.statistics?.distance?.change === 'number' ? summary.statistics.distance.change : 0)}
                   <span className="text-sm text-white">
-                    {summary.statistics.distance.change > 0 ? '+' : ''}{summary.statistics.distance.change.toFixed(2)} m
+                    {typeof summary.statistics?.distance?.change === 'number' ? 
+                      `${(summary.statistics.distance.change > 0 ? '+' : '')}${summary.statistics.distance.change.toFixed(2)} m` : 
+                      summary.statistics?.distance?.change || 'N/A'
+                    }
                   </span>
                 </div>
               </div>
@@ -306,7 +318,7 @@ const ExperimentSummary: React.FC<ExperimentSummaryProps> = ({
         </div>
 
         {/* Events */}
-        {summary.events.length > 0 && (
+        {summary.events && summary.events.length > 0 && (
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-white mb-4 flex items-center space-x-2">
               <AlertTriangle className="w-5 h-5 text-yellow-500" />

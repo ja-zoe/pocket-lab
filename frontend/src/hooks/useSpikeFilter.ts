@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { filterSensorData, getSpikeStats } from '../lib/spikeFilter';
 
 // Define FilteredDataPoint locally to avoid import issues

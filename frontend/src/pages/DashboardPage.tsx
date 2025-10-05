@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { mockSensorAPI, createMockWebSocket } from '../lib/mockAPI';
+import { mockSensorAPI, createWebSocket } from '../lib/mockAPI';
 import { 
   FlaskConical,
   Play,
@@ -14,14 +14,13 @@ import {
   Activity,
   Droplets,
   Gauge,
-  Wind,
   Eye,
   Ruler,
   CheckCircle,
   AlertCircle,
   Clock
 } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Gyroscope3D from '../components/Gyroscope3D';
 import AccelerationCombined from '../components/AccelerationCombined';
 import BME688Chart from '../components/BME688Chart';
@@ -70,50 +69,69 @@ const DashboardPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [experimentSummary, setExperimentSummary] = useState<any>(null);
+  const [currentTime, setCurrentTime] = useState(Date.now());
   const wsRef = useRef<WebSocket | null>(null);
   const isRunningRef = useRef(false);
   const maxDataPoints = 300; // Limit data points for smooth scrolling
 
-  // Load initial data
+  // Update current time every second when experiment is running
   useEffect(() => {
-    const loadInitialData = async () => {
+    if (!isExperimentRunning || !sessionStartTime) return;
+
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isExperimentRunning, sessionStartTime]);
+
+  // Connect to WebSocket for real-time data (no initial mock data)
+  useEffect(() => {
+
+    // Connect to WebSocket immediately for real-time data
+    wsRef.current = createWebSocket((data) => {
+      console.log('WebSocket data received:', data);
       try {
-        const data = await mockSensorAPI.getSensorData();
-        const formattedData = data.temperature.map((temp: any, index: number) => ({
-          timestamp: temp.timestamp,
-          temperature: temp.value,
-          acceleration: {
-            x: data.acceleration[index].x,
-            y: data.acceleration[index].y,
-            z: data.acceleration[index].z,
-          },
-          gyroscope: {
-            pitch: data.gyroscope?.[index]?.pitch || (Math.random() - 0.5) * 180,
-            roll: data.gyroscope?.[index]?.roll || (Math.random() - 0.5) * 180,
-            yaw: data.gyroscope?.[index]?.yaw || (Math.random() - 0.5) * 180,
-          },
-          bme688: {
-            temperature: data.bme688?.[index]?.temperature || 25 + Math.random() * 5,
-            humidity: data.bme688?.[index]?.humidity || 40 + Math.random() * 20,
-            pressure: data.bme688?.[index]?.pressure || 1013 + Math.random() * 10,
-            voc: data.bme688?.[index]?.voc || 50 + Math.random() * 100,
-          },
-          ultrasonic: {
-            distance: data.ultrasonic?.[index]?.distance || 50 + Math.random() * 100,
-          }
-        }));
-        setSensorData(formattedData);
-        
-        // Set current data to latest
-        if (formattedData.length > 0) {
-          setCurrentData(formattedData[formattedData.length - 1]);
+        if (data && data.type === 'sensor_update' && data.data) {
+          const newData: SensorData = {
+            timestamp: data.data.timestamp || Date.now(),
+            temperature: data.data.temperature?.value || 0,
+            acceleration: {
+              x: data.data.acceleration?.x || 0,
+              y: data.data.acceleration?.y || 0,
+              z: data.data.acceleration?.z || 0
+            },
+            gyroscope: {
+              pitch: data.data.gyroscope?.pitch || 0,
+              roll: data.data.gyroscope?.roll || 0,
+              yaw: data.data.gyroscope?.yaw || 0
+            },
+            bme688: {
+              temperature: data.data.bme688?.temperature || 0,
+              humidity: data.data.bme688?.humidity || 0,
+              pressure: data.data.bme688?.pressure || 0,
+              voc: data.data.bme688?.voc || 0
+            },
+            ultrasonic: {
+              distance: data.data.ultrasonic?.distance || 0
+            }
+          };
+
+          console.log('Processed new data:', newData);
+          setSensorData(prevData => {
+            const newDataArray = [newData, ...prevData].slice(0, maxDataPoints);
+            console.log('Updated sensor data array length:', newDataArray.length);
+            return newDataArray;
+          });
+
+          // Update current data
+          setCurrentData(newData);
+          console.log('Updated current data:', newData);
         }
       } catch (error) {
-        console.error('Failed to load initial data:', error);
+        console.error('Error processing WebSocket data:', error);
       }
-    };
-
-    loadInitialData();
+    });
   }, []);
 
   const startExperiment = async () => {
@@ -123,46 +141,14 @@ const DashboardPage: React.FC = () => {
       setIsExperimentRunning(true);
       isRunningRef.current = true;
       
-      // Generate session ID and start time
-      const newSessionId = `session_${Date.now()}`;
-      setSessionId(newSessionId);
-      setSessionStartTime(new Date());
+          // Generate session ID and start time
+          const newSessionId = `session_${Date.now()}`;
+          const startTime = new Date();
+          setSessionId(newSessionId);
+          setSessionStartTime(startTime);
+          setCurrentTime(Date.now()); // Initialize current time
       
-      // Connect to WebSocket for real-time data
-      wsRef.current = createMockWebSocket((data) => {
-        if (data.type === 'sensor_update' && isRunningRef.current) {
-          const newData: SensorData = {
-            timestamp: data.data.timestamp,
-            temperature: data.data.temperature.value,
-            acceleration: {
-              x: data.data.acceleration.x,
-              y: data.data.acceleration.y,
-              z: data.data.acceleration.z,
-            },
-            gyroscope: {
-              pitch: data.data.gyroscope?.pitch || (Math.random() - 0.5) * 180,
-              roll: data.data.gyroscope?.roll || (Math.random() - 0.5) * 180,
-              yaw: data.data.gyroscope?.yaw || (Math.random() - 0.5) * 180,
-            },
-            bme688: {
-              temperature: data.data.bme688?.temperature || 25 + Math.random() * 5,
-              humidity: data.data.bme688?.humidity || 40 + Math.random() * 20,
-              pressure: data.data.bme688?.pressure || 1013 + Math.random() * 10,
-              voc: data.data.bme688?.voc || 50 + Math.random() * 100,
-            },
-            ultrasonic: {
-              distance: data.data.ultrasonic?.distance || 50 + Math.random() * 100,
-            }
-          };
-          
-          setCurrentData(newData);
-          setSensorData(prev => {
-            const updated = [...prev, newData];
-            // Keep only last maxDataPoints for smooth scrolling
-            return updated.length > maxDataPoints ? updated.slice(-maxDataPoints) : updated;
-          });
-        }
-      });
+      // WebSocket is already connected, just start data processing
       
       showToastNotification('Experiment started successfully!', 'success');
     } catch (error) {
@@ -178,36 +164,165 @@ const DashboardPage: React.FC = () => {
       // Stop data processing immediately
       isRunningRef.current = false;
       
-      // Close WebSocket connection
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
+      // Keep WebSocket connection open for future experiments
       
       await mockSensorAPI.stopExperiment();
       
-      // Generate experiment summary
-      try {
-        const response = await fetch('http://localhost:3001/api/experiment/summary', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+      // Generate experiment summary from frontend data
+      const generateFrontendSummary = () => {
+        // Use the same duration calculation as the timer display
+        const durationMs = sessionStartTime ? currentTime - sessionStartTime.getTime() : 0;
+        const duration = Math.floor(durationMs / 1000);
         
-        if (response.ok) {
-          const summary = await response.json();
-          setExperimentSummary(summary);
-          setShowSummary(true);
+        if (sensorData.length === 0) {
+          return {
+            duration: 0,
+            dataPoints: 0,
+            statistics: {
+              temperature: { min: "N/A", max: "N/A", avg: "N/A", change: "N/A" },
+              pressure: { min: "N/A", max: "N/A", avg: "N/A", change: "N/A" },
+              humidity: { min: "N/A", max: "N/A", avg: "N/A", change: "N/A" },
+              acceleration: { x: { avg: "N/A" }, y: { avg: "N/A" }, z: { avg: "N/A" } },
+              distance: { min: "N/A", max: "N/A", avg: "N/A", change: "N/A" }
+            },
+            motionEvents: 0,
+            events: [],
+            dataQuality: { anomalies: 0, completeness: 0 },
+            commentary: "No data was collected during this experiment. Please ensure your ESP32 is connected and sending data to Supabase.",
+            timestamp: new Date().toISOString()
+          };
         }
-      } catch (summaryError) {
-        console.error('Failed to generate summary:', summaryError);
-        // Continue with stopping experiment even if summary fails
-      }
+
+        // Calculate statistics from frontend sensor data
+        const temperatures = sensorData.map(d => d.temperature).filter(t => t !== null && t !== undefined);
+        const pressures = sensorData.map(d => d.bme688?.pressure).filter(p => p !== null && p !== undefined);
+        const humidities = sensorData.map(d => d.bme688?.humidity).filter(h => h !== null && h !== undefined);
+        const accelX = sensorData.map(d => d.acceleration?.x).filter(a => a !== null && a !== undefined);
+        const accelY = sensorData.map(d => d.acceleration?.y).filter(a => a !== null && a !== undefined);
+        const accelZ = sensorData.map(d => d.acceleration?.z).filter(a => a !== null && a !== undefined);
+        const distances = sensorData.map(d => d.ultrasonic?.distance).filter(d => d !== null && d !== undefined);
+
+        // Temperature statistics
+        const tempStats = temperatures.length > 0 ? {
+          min: Math.min(...temperatures),
+          max: Math.max(...temperatures),
+          avg: temperatures.reduce((a, b) => a + b, 0) / temperatures.length,
+          change: temperatures.length > 1 ? temperatures[0] - temperatures[temperatures.length - 1] : 0
+        } : { min: "N/A", max: "N/A", avg: "N/A", change: "N/A" };
+
+        // Pressure statistics
+        const pressureStats = pressures.length > 0 ? {
+          min: Math.min(...pressures),
+          max: Math.max(...pressures),
+          avg: pressures.reduce((a, b) => a + b, 0) / pressures.length,
+          change: pressures.length > 1 ? pressures[0] - pressures[pressures.length - 1] : 0
+        } : { min: "N/A", max: "N/A", avg: "N/A", change: "N/A" };
+
+        // Humidity statistics
+        const humidityStats = humidities.length > 0 ? {
+          min: Math.min(...humidities),
+          max: Math.max(...humidities),
+          avg: humidities.reduce((a, b) => a + b, 0) / humidities.length,
+          change: humidities.length > 1 ? humidities[0] - humidities[humidities.length - 1] : 0
+        } : { min: "N/A", max: "N/A", avg: "N/A", change: "N/A" };
+
+        // Acceleration statistics
+        const accelerationStats = {
+          x: { avg: accelX.length > 0 ? accelX.reduce((a, b) => a + b, 0) / accelX.length : "N/A" },
+          y: { avg: accelY.length > 0 ? accelY.reduce((a, b) => a + b, 0) / accelY.length : "N/A" },
+          z: { avg: accelZ.length > 0 ? accelZ.reduce((a, b) => a + b, 0) / accelZ.length : "N/A" }
+        };
+
+        // Distance statistics
+        const distanceStats = distances.length > 0 ? {
+          min: Math.min(...distances),
+          max: Math.max(...distances),
+          avg: distances.reduce((a, b) => a + b, 0) / distances.length,
+          change: distances.length > 1 ? distances[0] - distances[distances.length - 1] : 0
+        } : { min: "N/A", max: "N/A", avg: "N/A", change: "N/A" };
+
+        // Detect motion events (acceleration spikes)
+        let motionEvents = 0;
+        for (let i = 1; i < sensorData.length; i++) {
+          const prev = sensorData[i - 1];
+          const curr = sensorData[i];
+          if (prev.acceleration && curr.acceleration) {
+            const accelMagnitude = Math.sqrt(
+              Math.pow(curr.acceleration.x - prev.acceleration.x, 2) +
+              Math.pow(curr.acceleration.y - prev.acceleration.y, 2) +
+              Math.pow(curr.acceleration.z - prev.acceleration.z, 2)
+            );
+            if (accelMagnitude > 2.0) { // Threshold for motion detection in m/s²
+              motionEvents++;
+            }
+          }
+        }
+
+        // Generate events
+        const events = [];
+        if (motionEvents > 0) {
+          events.push({
+            type: "motion",
+            description: `Detected ${motionEvents} motion events during experiment`,
+            severity: "medium",
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        if (typeof tempStats.change === 'number' && Math.abs(tempStats.change) > 5) {
+          events.push({
+            type: "temperature",
+            description: `Significant temperature change: ${tempStats.change.toFixed(1)}°C`,
+            severity: Math.abs(tempStats.change) > 10 ? "high" : "medium",
+            timestamp: new Date().toISOString()
+          });
+        }
+
+        // Generate AI commentary
+        let commentary = "Experiment completed successfully! ";
+        if (typeof tempStats.change === 'number') {
+          if (tempStats.change > 2) {
+            commentary += `Temperature increased by ${tempStats.change.toFixed(1)}°C, indicating active heating. `;
+          } else if (tempStats.change < -2) {
+            commentary += `Temperature decreased by ${Math.abs(tempStats.change).toFixed(1)}°C, showing cooling effects. `;
+          } else {
+            commentary += "Temperature remained relatively stable. ";
+          }
+        }
+
+        if (motionEvents > 0) {
+          commentary += `Detected ${motionEvents} motion events, suggesting device movement during experiment. `;
+        }
+
+        commentary += `Data quality is good with ${sensorData.length} data points collected over ${duration} seconds.`;
+
+        return {
+          duration: duration,
+          dataPoints: sensorData.length,
+          statistics: {
+            temperature: tempStats,
+            pressure: pressureStats,
+            humidity: humidityStats,
+            acceleration: accelerationStats,
+            distance: distanceStats
+          },
+          motionEvents: motionEvents,
+          events: events,
+          dataQuality: { anomalies: 0, completeness: 100 },
+          commentary: commentary,
+          timestamp: new Date().toISOString()
+        };
+      };
+
+      const summary = generateFrontendSummary();
+      console.log('Generated frontend experiment summary:', summary);
+      setExperimentSummary(summary);
+      setShowSummary(true);
       
       setIsExperimentRunning(false);
       setSessionId('');
       setSessionStartTime(null);
+      setCurrentTime(Date.now()); // Reset current time
       
       showToastNotification('Experiment stopped successfully!', 'success');
       console.log('Experiment stopped - WebSocket closed and data processing halted');
@@ -487,9 +602,7 @@ const DashboardPage: React.FC = () => {
   useEffect(() => {
     return () => {
       isRunningRef.current = false;
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
+      // Keep WebSocket connection open for better user experience
     };
   }, []);
 
@@ -497,17 +610,17 @@ const DashboardPage: React.FC = () => {
   const rawChartData = sensorData.map(data => ({
     time: data.timestamp, // Keep original timestamp
     timeString: new Date(data.timestamp).toLocaleTimeString(), // For display
-    temperature: data.temperature,
-    accelX: data.acceleration.x,
-    accelY: data.acceleration.y,
-    accelZ: data.acceleration.z,
+    temperature: data.temperature || 0,
+    accelX: data.acceleration?.x || 0,
+    accelY: data.acceleration?.y || 0,
+    accelZ: data.acceleration?.z || 0,
     // BME688 data
-    bmeTemp: data.bme688.temperature,
-    humidity: data.bme688.humidity,
-    pressure: data.bme688.pressure,
-    voc: data.bme688.voc,
+    bmeTemp: data.bme688?.temperature || 0,
+    humidity: data.bme688?.humidity || 0,
+    pressure: data.bme688?.pressure || 0,
+    voc: data.bme688?.voc || 0,
     // Ultrasonic data
-    distance: data.ultrasonic.distance,
+    distance: data.ultrasonic?.distance || 0,
   }));
 
   // Apply spike filtering
@@ -544,7 +657,7 @@ const DashboardPage: React.FC = () => {
   // Format session duration
   const formatSessionDuration = () => {
     if (!sessionStartTime) return '';
-    const duration = Date.now() - sessionStartTime.getTime();
+    const duration = currentTime - sessionStartTime.getTime();
     const minutes = Math.floor(duration / 60000);
     const seconds = Math.floor((duration % 60000) / 1000);
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
@@ -689,8 +802,8 @@ const DashboardPage: React.FC = () => {
                       </>
                     ) : (
                       <>
-                        <Play className="w-5 h-5" />
-                        <span>Start Experiment</span>
+                    <Play className="w-5 h-5" />
+                    <span>Start Experiment</span>
                       </>
                     )}
                   </button>
@@ -737,10 +850,10 @@ const DashboardPage: React.FC = () => {
             <BME688Chart 
               data={sensorData.map(data => ({
                 timestamp: data.timestamp,
-                temperature: data.bme688.temperature,
-                humidity: data.bme688.humidity,
-                pressure: data.bme688.pressure,
-                voc: data.bme688.voc
+                temperature: data.bme688?.temperature || 0,
+                humidity: data.bme688?.humidity || 0,
+                pressure: data.bme688?.pressure || 0,
+                voc: data.bme688?.voc || 0
               }))}
             />
           </div>
@@ -758,13 +871,13 @@ const DashboardPage: React.FC = () => {
             </div>
             
             {chartData.length > 0 ? (
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData} margin={{ top: 20, right: 30, left: 30, bottom: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                    <XAxis 
-                      dataKey="time" 
-                      stroke="#9CA3AF"
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis 
+                    dataKey="time" 
+                    stroke="#9CA3AF"
                       fontSize={10}
                       tick={{ fill: '#9CA3AF', fontSize: 10 }}
                       tickLine={{ stroke: '#9CA3AF' }}
@@ -776,9 +889,9 @@ const DashboardPage: React.FC = () => {
                         if (isNaN(date.getTime())) return '';
                         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                       }}
-                    />
-                    <YAxis 
-                      stroke="#9CA3AF"
+                  />
+                  <YAxis 
+                    stroke="#9CA3AF"
                       fontSize={9}
                       tick={{ fill: '#9CA3AF', fontSize: 9 }}
                       tickLine={{ stroke: '#9CA3AF' }}
@@ -801,35 +914,35 @@ const DashboardPage: React.FC = () => {
                       }}
                     />
                     <Tooltip content={<CustomTooltip />} />
-                    <Line 
-                      type="monotone" 
-                      dataKey="voc" 
+                  <Line 
+                    type="monotone" 
+                    dataKey="voc" 
                       stroke="#f97316" 
-                      strokeWidth={3}
-                      dot={false}
-                      name="VOC Index"
+                    strokeWidth={3}
+                    dot={false}
+                    name="VOC Index"
                       activeDot={{ r: 5, fill: '#f97316' }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
             ) : (
               <div className="h-80 flex items-center justify-center text-gray-400">
                 <div className="text-center">
                   <Eye className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Start experiment to see VOC data</p>
-                </div>
+                  <p>Waiting for experiment to start</p>
+          </div>
               </div>
             )}
-          </div>
-
+            </div>
+            
           {/* Combined Acceleration Data */}
           <div className="animate-fade-in">
             <AccelerationCombined 
               data={chartData}
-              width={600}
-              height={300}
-            />
+                  width={600}
+                  height={300}
+                />
           </div>
 
           {/* 3D Gyroscope Visualization */}
@@ -876,13 +989,13 @@ const DashboardPage: React.FC = () => {
             </div>
             
             {chartData.length > 0 ? (
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={chartData} margin={{ top: 20, right: 30, left: 30, bottom: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                    <XAxis 
-                      dataKey="time" 
-                      stroke="#9CA3AF"
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis 
+                    dataKey="time" 
+                    stroke="#9CA3AF"
                       fontSize={10}
                       tick={{ fill: '#9CA3AF', fontSize: 10 }}
                       tickLine={{ stroke: '#9CA3AF' }}
@@ -894,9 +1007,9 @@ const DashboardPage: React.FC = () => {
                         if (isNaN(date.getTime())) return '';
                         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                       }}
-                    />
-                    <YAxis 
-                      stroke="#9CA3AF"
+                  />
+                  <YAxis 
+                    stroke="#9CA3AF"
                       fontSize={9}
                       tick={{ fill: '#9CA3AF', fontSize: 9 }}
                       tickLine={{ stroke: '#9CA3AF' }}
@@ -919,23 +1032,23 @@ const DashboardPage: React.FC = () => {
                       }}
                     />
                     <Tooltip content={<CustomTooltip />} />
-                    <Line 
-                      type="monotone" 
-                      dataKey="distance" 
+                  <Line 
+                    type="monotone" 
+                    dataKey="distance" 
                       stroke="#a855f7" 
-                      strokeWidth={3}
-                      dot={false}
+                    strokeWidth={3}
+                    dot={false}
                       name="Distance (m)"
                       activeDot={{ r: 5, fill: '#a855f7' }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
             ) : (
               <div className="h-80 flex items-center justify-center text-gray-400">
                 <div className="text-center">
                   <Ruler className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Start experiment to see distance data</p>
+                  <p>Waiting for experiment to start</p>
                 </div>
               </div>
             )}

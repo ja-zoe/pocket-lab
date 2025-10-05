@@ -3,16 +3,12 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   FlaskConical, 
-  Thermometer, 
   Zap, 
-  Ruler, 
   Leaf, 
   Clock, 
-  Users, 
   Target,
   Play,
   BookOpen,
-  ArrowLeft,
   History,
   LogOut
 } from 'lucide-react';

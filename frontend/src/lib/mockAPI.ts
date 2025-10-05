@@ -1,8 +1,9 @@
-// Mock API service to replace Supabase calls
-const API_BASE_URL = 'http://localhost:3001';
+// API service to connect to Supabase backend
+const API_BASE_URL = 'http://localhost:8000';
+const WS_BASE_URL = 'ws://localhost:8000';
 
-// Mock authentication
-export const mockAuth = {
+// Real authentication service
+export const authService = {
   async signInWithPassword(email: string, password: string) {
     const response = await fetch(`${API_BASE_URL}/auth/v1/token`, {
       method: 'POST',
@@ -74,7 +75,7 @@ export const mockAuth = {
     return { data: { session: null }, error: null };
   },
 
-  onAuthStateChange(callback: (event: string, session: any) => void) {
+  onAuthStateChange(_callback: (event: string, session: any) => void) {
     // Mock auth state change listener
     return {
       data: {
@@ -190,54 +191,32 @@ export const mockSensorAPI = {
 };
 
 // Mock WebSocket connection for real-time data
-export const createMockWebSocket = (onMessage: (data: any) => void) => {
-  // Create a mock WebSocket-like object
-  const mockWs = {
-    readyState: 1, // OPEN
-    close: () => {
-      if (mockWs.intervalId) {
-        clearInterval(mockWs.intervalId);
-        mockWs.intervalId = null;
-      }
-      console.log('Mock WebSocket closed');
-    },
-    intervalId: null as NodeJS.Timeout | null
-  };
-
-  // Simulate WebSocket connection
-  console.log('Connected to mock WebSocket');
+export const createWebSocket = (onMessage: (data: any) => void) => {
+  const ws = new WebSocket(`${WS_BASE_URL}/ws`);
   
-  // Start sending mock data every 2 seconds
-  mockWs.intervalId = setInterval(() => {
-    const mockData = {
-      type: 'sensor_update',
-      data: {
-        timestamp: Date.now(),
-        temperature: { value: 20 + Math.random() * 10 },
-        acceleration: {
-          x: (Math.random() - 0.5) * 2,
-          y: (Math.random() - 0.5) * 2,
-          z: (Math.random() - 0.5) * 2 + 1
-        },
-        gyroscope: {
-          pitch: (Math.random() - 0.5) * 180,
-          roll: (Math.random() - 0.5) * 180,
-          yaw: (Math.random() - 0.5) * 180
-        },
-        bme688: {
-          temperature: 22 + Math.random() * 8,
-          humidity: 45 + Math.random() * 30,
-          pressure: 1010 + Math.random() * 20,
-          voc: 30 + Math.random() * 120
-        },
-        ultrasonic: {
-          distance: 20 + Math.random() * 150
-        }
-      }
-    };
-    
-    onMessage(mockData);
-  }, 2000);
-
-  return mockWs as any;
+  ws.onopen = () => {
+    console.log('Connected to backend WebSocket');
+  };
+  
+  ws.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      // Data is already in the correct format from backend
+      console.log('Received WebSocket data:', data);
+      onMessage(data);
+    } catch (error) {
+      console.error('Error parsing WebSocket message:', error);
+    }
+  };
+  
+  ws.onerror = (error) => {
+    console.error('WebSocket error:', error);
+    // Don't crash the app, just log the error
+  };
+  
+  ws.onclose = () => {
+    console.log('WebSocket disconnected');
+  };
+  
+  return ws;
 };

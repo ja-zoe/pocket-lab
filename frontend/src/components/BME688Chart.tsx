@@ -28,9 +28,7 @@ interface BME688ChartProps {
 type MetricType = 'temperature' | 'humidity' | 'pressure';
 
 const BME688Chart: React.FC<BME688ChartProps> = ({ 
-  data, 
-  width = 500, 
-  height = 250 
+  data
 }) => {
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('temperature');
 
@@ -62,6 +60,7 @@ const BME688Chart: React.FC<BME688ChartProps> = ({
   };
 
   const chartData = useMemo(() => {
+    if (!data || data.length === 0) return [];
     return data.map(item => {
       // Clamp values to prevent extreme outliers
       const clampValue = (value: number, min: number, max: number) => 
@@ -86,7 +85,7 @@ const BME688Chart: React.FC<BME688ChartProps> = ({
   }, [data, selectedMetric]);
 
   const currentConfig = metricConfig[selectedMetric];
-  const currentData = data[data.length - 1] || { temperature: 0, humidity: 0, pressure: 0, voc: 0 };
+  const currentData = (data && data.length > 0) ? data[data.length - 1] : { temperature: 0, humidity: 0, pressure: 0, voc: 0 };
 
   return (
     <div className="card-glow p-6 w-full max-w-full">
@@ -147,7 +146,7 @@ const BME688Chart: React.FC<BME688ChartProps> = ({
                 <div key={key} className="text-sm">
                   <span className="text-gray-400">{config.label}: </span>
                   <span className="text-white font-medium">
-                    {currentData[key as keyof BME688Data]?.toFixed(1) || '0.0'}{config.unit}
+                    {(currentData as any)[key]?.toFixed(1) || '0.0'}{config.unit}
                   </span>
                 </div>
               );
@@ -203,7 +202,7 @@ const BME688Chart: React.FC<BME688ChartProps> = ({
                 color: '#ffffff'
               }}
               labelStyle={{ color: '#9ca3af' }}
-              formatter={(value: any, name: string) => [
+              formatter={(value: any) => [
                 `${value?.toFixed(2)}${currentConfig.unit}`,
                 currentConfig.label
               ]}

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text } from '@react-three/drei';
 import * as THREE from 'three';
@@ -24,12 +24,12 @@ const AccelerationVisualization: React.FC<{ acceleration: { x: number; y: number
   const trailGeometry = useRef<THREE.BufferGeometry>(new THREE.BufferGeometry());
 
   useFrame(() => {
-    if (pointRef.current) {
+    if (pointRef.current && acceleration) {
       // Scale acceleration values for better visualization
       const scale = 2;
-      const x = acceleration.x * scale;
-      const y = acceleration.y * scale;
-      const z = acceleration.z * scale;
+      const x = (acceleration.x || 0) * scale;
+      const y = (acceleration.y || 0) * scale;
+      const z = (acceleration.z || 0) * scale;
       
       // Update point position
       pointRef.current.position.set(x, y, z);
@@ -91,12 +91,7 @@ const AccelerationVisualization: React.FC<{ acceleration: { x: number; y: number
       <group>
         {/* X-axis (Red) */}
         <arrowHelper
-          dir={[1, 0, 0]}
-          origin={[0, 0, 0]}
-          length={3}
-          color="#ef4444"
-          headLength={0.3}
-          headWidth={0.2}
+          args={[new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), 3, '#ef4444', 0.3, 0.2]}
         />
         <Text
           position={[3.5, 0, 0]}
@@ -110,12 +105,7 @@ const AccelerationVisualization: React.FC<{ acceleration: { x: number; y: number
         
         {/* Y-axis (Green) */}
         <arrowHelper
-          dir={[0, 1, 0]}
-          origin={[0, 0, 0]}
-          length={3}
-          color="#22c55e"
-          headLength={0.3}
-          headWidth={0.2}
+          args={[new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), 3, '#22c55e', 0.3, 0.2]}
         />
         <Text
           position={[0, 3.5, 0]}
@@ -129,12 +119,7 @@ const AccelerationVisualization: React.FC<{ acceleration: { x: number; y: number
         
         {/* Z-axis (Blue) */}
         <arrowHelper
-          dir={[0, 0, 1]}
-          origin={[0, 0, 0]}
-          length={3}
-          color="#3b82f6"
-          headLength={0.3}
-          headWidth={0.2}
+          args={[new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0), 3, '#3b82f6', 0.3, 0.2]}
         />
         <Text
           position={[0, 0, 3.5]}
@@ -150,12 +135,7 @@ const AccelerationVisualization: React.FC<{ acceleration: { x: number; y: number
       {/* Acceleration vector arrow */}
       <group ref={arrowRef}>
         <arrowHelper
-          dir={[1, 0, 0]}
-          origin={[0, 0, 0]}
-          length={1}
-          color={getColor(magnitude)}
-          headLength={0.2}
-          headWidth={0.1}
+          args={[new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), 1, getColor(magnitude), 0.2, 0.1]}
         />
       </group>
       

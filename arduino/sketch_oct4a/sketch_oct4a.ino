@@ -4,35 +4,22 @@
 #include <Adafruit_BMP280.h>
 #include <Adafruit_BME680.h>   // 🔹 Library that also supports BME688
 #include <MPU6050.h>
-<<<<<<< HEAD
-#include <Adafruit_HMC5883_U.h>
+#include <Adafruit_HMC5883_U.h>   // For genuine HMC5883L
 #include <WiFi.h>
 #include <HTTPClient.h>
-
-=======
-
-// ---- MAGNETOMETER: uncomment the one you really have ----
-#include <Adafruit_HMC5883_U.h>   // For genuine HMC5883L
-// #include <QMC5883LCompass.h>   // For QMC5883L clones
-
->>>>>>> ccb096e9ad964485bd703975aff5afe8aa0249d7
 // ---- ESP-IDF log control ----
 extern "C" {
   #include "esp_log.h"
 }
 
-<<<<<<< HEAD
 // ---- WiFi credentials ----
 const char* ssid = "RUatHome";
 const char* password = "9Tc63j2SzTE9";
 
 // ---- Backend endpoint ----
-const char* serverUrl = "http://your-server.com/api/sensor";
+const char* serverUrl = "http://192.168.1.104:8000/api/sensor-data";
 
 // ---- I2C pins ----
-=======
-// I2C pins (adjust for your board!)
->>>>>>> ccb096e9ad964485bd703975aff5afe8aa0249d7
 #define SDA_PIN 5
 #define SCL_PIN 6
 
@@ -157,57 +144,30 @@ void loop() {
 
   // --- Read magnetometer ---
   sensors_event_t event;
-<<<<<<< HEAD
   mag.getEvent(&event);
 
-  // --- Build JSON ---
+  // --- Build JSON in backend expected format ---
   StaticJsonDocument<768> doc;
 
-  doc["timestamp_ms"] = millis();
-
-  JsonObject bmp280 = doc.createNestedObject("bmp280");
-  bmp280["temperature_c"] = temperature_bmp;
-  bmp280["pressure_hpa"] = pressure_bmp;
-
-  JsonObject bme688 = doc.createNestedObject("bme688");
-  bme688["temperature_c"] = temperature_bme;
-  bme688["humidity_%"] = humidity_bme;
-  bme688["pressure_hpa"] = pressure_bme;
-  bme688["gas_kohm"] = gas_bme;
-=======
-  mag.getEvent(&event);        // for HMC
-  // mag.read();                // for QMC
-  // float mx = mag.getX();     // QMC accessors
-  // float my = mag.getY();
-  // float mz = mag.getZ();
-
-  // --- Build JSON ---
-  StaticJsonDocument<512> doc;
-
-  doc["temperature_c"] = temperature;
-  doc["pressure_hpa"] = pressure;
->>>>>>> ccb096e9ad964485bd703975aff5afe8aa0249d7
-
-  JsonObject accel = doc.createNestedObject("accel_g");
-  accel["x"] = ax_g;
-  accel["y"] = ay_g;
-  accel["z"] = az_g;
-
-  JsonObject gyro = doc.createNestedObject("gyro_dps");
-  gyro["x"] = gx_dps;
-  gyro["y"] = gy_dps;
-  gyro["z"] = gz_dps;
-
-  JsonObject magField = doc.createNestedObject("mag_uT");
-  magField["x"] = event.magnetic.x;
-  magField["y"] = event.magnetic.y;
-  magField["z"] = event.magnetic.z;
+  // Required fields for backend
+  doc["session_id"] = "esp32_session";
+  doc["timestamp"] = millis();
+  doc["temperature"] = temperature_bme;  // Use BME temperature
+  doc["pressure"] = pressure_bme;        // Use BME pressure
+  doc["humidity"] = humidity_bme;
+  doc["voc"] = gas_bme / 1000.0;         // Convert kΩ to appropriate unit
+  doc["accelX"] = ax_g;
+  doc["accelY"] = ay_g;
+  doc["accelZ"] = az_g;
+  doc["gyroX"] = gx_dps;
+  doc["gyroY"] = gy_dps;
+  doc["gyroZ"] = gz_dps;
+  doc["distance"] = 25.0;                // Default distance (no ultrasonic sensor)
 
   String json;
   serializeJson(doc, json);
   Serial.println(json);
 
-<<<<<<< HEAD
   // --- Send JSON to backend ---
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
@@ -225,8 +185,5 @@ void loop() {
   } else {
     Serial.println("WiFi not connected!");
   }
-
-=======
->>>>>>> ccb096e9ad964485bd703975aff5afe8aa0249d7
   delay(500);
 }

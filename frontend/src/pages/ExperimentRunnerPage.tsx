@@ -12,7 +12,6 @@ import {
   Clock,
   Target,
   AlertCircle,
-  Download,
   FlaskConical,
   BookOpen,
   History,
@@ -88,7 +87,7 @@ const ExperimentRunnerPage: React.FC = () => {
   const [stepElapsedTime, setStepElapsedTime] = useState(0);
   const [experimentStartTime, setExperimentStartTime] = useState<number | null>(null);
   const [sensorData, setSensorData] = useState<SensorData[]>([]);
-  const [stepData, setStepData] = useState<{ [stepId: string]: SensorData[] }>({});
+  const [, setStepData] = useState<{ [stepId: string]: SensorData[] }>({});
   const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
   const [conditionMet, setConditionMet] = useState(false);
   
@@ -97,12 +96,7 @@ const ExperimentRunnerPage: React.FC = () => {
 
   // Spike filter for data processing
   const {
-    filteredData,
-    showClean,
-    setShowClean,
-    spikeStats,
-    filterOptions,
-    updateFilterOptions
+    filteredData
   } = useSimpleSpikeFilter(sensorData || [], {
     windowSize: 5,
     threshold: 2
@@ -110,6 +104,7 @@ const ExperimentRunnerPage: React.FC = () => {
 
   // Transform data for AccelerationCombined component
   const transformedData = useMemo(() => {
+    if (!filteredData || filteredData.length === 0) return [];
     return filteredData.map(item => ({
       ...item,
       time: item.timestamp,
@@ -134,7 +129,7 @@ const ExperimentRunnerPage: React.FC = () => {
 
     // Save current step data
     const currentStep = template.steps[currentStepIndex];
-    setStepData(prev => ({
+        setStepData((prev: { [stepId: string]: SensorData[] }) => ({
       ...prev,
       [currentStep.id]: [...sensorData]
     }));

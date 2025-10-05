@@ -1,164 +1,82 @@
 import os
-from fastapi import FastAPI, Request, HTTPException, WebSocket, WebSocketDisconnect
+import asyncio
+import math
+import json
+import requests
+from datetime import datetime
+from typing import List, Dict, Any, Optional
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import requests
 from dotenv import load_dotenv
-import json
-from datetime import datetime
-import asyncio
-import random
-import time
-import math
 
 # Load environment variables
 load_dotenv()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://xywmpoeoqhxqczofvsnh.supabase.co")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5d21wb2VvcWh4cWN6b2Z2c25oIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTU5NjM3MSwiZXhwIjoyMDc1MTcyMzcxfQ.iqa4RCkAjOlSGcJG3dob0YKyK7NTAcNRW5DZjjUuvh0")
+app = FastAPI(title="PocketLab Backend API", version="1.0.0")
 
-app = FastAPI()
-
-# WebSocket connection manager
-class ConnectionManager:
-    def __init__(self):
-        self.active_connections: list[WebSocket] = []
-        self.is_generating_data = False
-        self.data_task = None
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-        print(f"WebSocket connected. Total connections: {len(self.active_connections)}")
-        print(f"WebSocket client info: {websocket.client}")
-
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
-        print(f"WebSocket disconnected. Total connections: {len(self.active_connections)}")
-
-    async def send_personal_message(self, message: str, websocket: WebSocket):
-        await websocket.send_text(message)
-
-    async def broadcast(self, message: str):
-        print(f"Broadcasting to {len(self.active_connections)} connections")
-        for connection in self.active_connections:
-            try:
-                await connection.send_text(message)
-                print(f"Message sent successfully to connection")
-            except Exception as e:
-                print(f"Error sending message to connection: {e}")
-                # Remove broken connections
-                self.active_connections.remove(connection)
-
-    async def generate_sensor_data(self):
-        """Fetch real sensor data from Supabase and broadcast to all connected clients"""
-        print(f"Starting data generation. is_generating_data: {self.is_generating_data}, active_connections: {len(self.active_connections)}")
-        while self.is_generating_data:
-            try:
-                # Fetch recent sensor data from Supabase (last 5 records for time series)
-                url = f"{SUPABASE_URL}/rest/v1/sensor_readings"
-                url += "?order=created_at.desc&limit=5"
-                
-                headers = {
-                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
-                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-                    "Content-Type": "application/json"
-                }
-                
-                resp = requests.get(url, headers=headers)
-                
-                if resp.status_code == 200 and resp.json():
-                    # Use real data from Supabase - send latest record
-                    data = resp.json()[0]
-                    timestamp = int(time.time() * 1000)
-                    
-                    sensor_data = {
-                        "type": "sensor_update",
-                        "data": {
-                            "timestamp": timestamp,
-                            "temperature": {
-                                "value": data.get("temperature", 25.0)
-                            },
-                            "acceleration": {
-                                "x": (data.get("accel_x", 0) / 16384.0) * 9.81,  # Convert raw to m/s²
-                                "y": (data.get("accel_y", 0) / 16384.0) * 9.81,
-                                "z": (data.get("accel_z", 16384) / 16384.0) * 9.81
-                            },
-                            "gyroscope": {
-                                "pitch": (data.get("gyro_x", 0) / 131.0) * (math.pi / 180),  # Convert raw to rad/s
-                                "roll": (data.get("gyro_y", 0) / 131.0) * (math.pi / 180),
-                                "yaw": (data.get("gyro_z", 0) / 131.0) * (math.pi / 180)
-                            },
-                            "bme688": {
-                                "temperature": data.get("temperature", 25.0),
-                                "humidity": 60.0,  # Default humidity since not in sensor_readings
-                                "pressure": data.get("pressure", 1013.0) * 100,  # Convert hPa to Pa
-                                "voc": 200.0  # Default VOC value since not in schema
-                            },
-                            "ultrasonic": {
-                                "distance": 25.0  # Default distance value
-                            }
-                        }
-                    }
-                    
-                    # Only broadcast if we have real data and connections
-                    if self.active_connections:
-                        print(f"Broadcasting sensor data to {len(self.active_connections)} connections")
-                        await self.broadcast(json.dumps(sensor_data))
-                    else:
-                        print("No active connections, skipping broadcast")
-                else:
-                    # No data available - don't send anything, keep graphs empty
-                    print("No sensor data available in Supabase - keeping graphs empty")
-                
-                await asyncio.sleep(0.1)  # 10Hz data rate
-                
-            except Exception as e:
-                print(f"Error fetching sensor data: {e}")
-                # Don't send mock data on error - keep graphs empty
-                await asyncio.sleep(0.1)
-
-    def start_data_generation(self):
-        if not self.is_generating_data:
-            self.is_generating_data = True
-            print(f"Starting data generation. Active connections: {len(self.active_connections)}")
-            try:
-                loop = asyncio.get_event_loop()
-                self.data_task = loop.create_task(self.generate_sensor_data())
-            except RuntimeError:
-                # If no event loop is running, create a new one
-                self.data_task = asyncio.create_task(self.generate_sensor_data())
-            print("Started sensor data generation")
-        else:
-            print("Data generation already running")
-
-    def stop_data_generation(self):
-        if self.is_generating_data:
-            self.is_generating_data = False
-            if self.data_task:
-                self.data_task.cancel()
-            print("Stopped sensor data generation")
-
-manager = ConnectionManager()
-
-# Add CORS middleware
+# CORS middleware - Allow all origins for development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=["*"],  # Allow all origins for development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-class Reading(BaseModel):
-    session_id: str
-    temp: float
-    ax: float
-    ay: float
-    az: float
-    deviceTs: int
+# Supabase configuration
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://xywmpoeoqhqjqjqjqjqj.supabase.co")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh5d21wb2VvcWhxampxampxampxaiIsInJvbGUiOiJzZXJ2aWNlX3JvbGUiLCJpYXQiOjE3MzM0NzQ4MDAsImV4cCI6MjA0OTA1MDgwMH0.abc123def456ghi789jkl012mno345pqr678stu901vwx234yz")
 
-class SensorData(BaseModel):
+# WebSocket connection manager
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+        self.data_generation_task = None
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+        print(f"📱 Client connected. Total connections: {len(self.active_connections)}")
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+        print(f"📱 Client disconnected. Total connections: {len(self.active_connections)}")
+
+    async def send_personal_message(self, message: str, websocket: WebSocket):
+        try:
+            await websocket.send_text(message)
+        except:
+            self.disconnect(websocket)
+
+    async def broadcast(self, message: str):
+        disconnected = []
+        for connection in self.active_connections:
+            try:
+                await connection.send_text(message)
+            except:
+                disconnected.append(connection)
+        
+        # Remove disconnected clients
+        for connection in disconnected:
+            self.disconnect(connection)
+
+    def start_data_generation(self):
+        if self.data_generation_task is None:
+            self.data_generation_task = asyncio.create_task(self.generate_sensor_data())
+            print("🔄 Started sensor data generation")
+
+    def stop_data_generation(self):
+        if self.data_generation_task:
+            self.data_generation_task.cancel()
+            self.data_generation_task = None
+            print("⏹️ Stopped sensor data generation")
+
+manager = ConnectionManager()
+
+# Pydantic models
+class Reading(BaseModel):
     session_id: str
     timestamp: int
     temperature: float
@@ -173,8 +91,16 @@ class SensorData(BaseModel):
     gyroZ: float
     distance: float
 
+class SensorData(BaseModel):
+    timestamp: int
+    temperature: float
+    acceleration: Dict[str, float]
+    gyroscope: Dict[str, float]
+    bme688: Dict[str, float]
+    ultrasonic: Dict[str, float]
+
 class SessionStart(BaseModel):
-    device_id: str
+    session_id: str
 
 class SessionStop(BaseModel):
     session_id: str
@@ -183,225 +109,209 @@ class AuthRequest(BaseModel):
     email: str
     password: str
 
-@app.post("/readings")
-def proxy_reading(reading: Reading):
-    url = f"{SUPABASE_URL}/rest/v1/readings"
-    headers = {
-        "apikey": SUPABASE_SERVICE_ROLE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-        "Content-Type": "application/json"
-    }
-    resp = requests.post(url, json=reading.dict(), headers=headers)
-    if resp.status_code != 201:
-        raise HTTPException(status_code=resp.status_code, detail=resp.text)
-    return {"status": "ok"}
+# API endpoints
+@app.get("/")
+async def root():
+    return {"message": "PocketLab Backend API", "status": "healthy"}
 
-@app.post("/sessions/start")
-def start_session(data: SessionStart):
-    url = f"{SUPABASE_URL}/rest/v1/sessions"
-    headers = {
-        "apikey": SUPABASE_SERVICE_ROLE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-        "Content-Type": "application/json"
-    }
-    payload = {"device_id": data.device_id}
-    resp = requests.post(url, json=payload, headers=headers)
-    if resp.status_code != 201:
-        raise HTTPException(status_code=resp.status_code, detail=resp.text)
-    return resp.json()
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
-@app.post("/sessions/stop")
-def stop_session(data: SessionStop):
-    url = f"{SUPABASE_URL}/rest/v1/sessions?id=eq.{data.session_id}"
-    headers = {
-        "apikey": SUPABASE_SERVICE_ROLE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-        "Content-Type": "application/json",
-        "Prefer": "return=representation"
-    }
-    payload = {"stopped_at": "now()"}
-    resp = requests.patch(url, json=payload, headers=headers)
-    if resp.status_code != 200:
-        raise HTTPException(status_code=resp.status_code, detail=resp.text)
-    return resp.json()
+@app.post("/api/sensor-data")
+async def receive_sensor_data(reading: Reading):
+    """Receive sensor data from ESP32 and store in Supabase"""
+    try:
+        # Store in Supabase
+        url = f"{SUPABASE_URL}/rest/v1/sensor_readings"
+        headers = {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal"
+        }
+        
+        data = {
+            "session_id": reading.session_id,
+            "timestamp": reading.timestamp,
+            "temperature": reading.temperature,
+            "pressure": reading.pressure,
+            "humidity": reading.humidity,
+            "voc": reading.voc,
+            "accel_x": reading.accelX,
+            "accel_y": reading.accelY,
+            "accel_z": reading.accelZ,
+            "gyro_x": reading.gyroX,
+            "gyro_y": reading.gyroY,
+            "gyro_z": reading.gyroZ,
+            "distance": reading.distance
+        }
+        
+        response = requests.post(url, headers=headers, json=data)
+        
+        if response.status_code in [200, 201]:
+            return {"status": "success", "message": "Data stored successfully"}
+        else:
+            print(f"❌ Supabase error: {response.status_code} - {response.text}")
+            return {"status": "error", "message": "Failed to store data"}
+            
+    except Exception as e:
+        print(f"❌ Error storing sensor data: {e}")
+        return {"status": "error", "message": str(e)}
 
-# Authentication endpoints
+@app.post("/api/experiment/start")
+async def start_experiment(session: SessionStart):
+    """Start an experiment session"""
+    try:
+        manager.start_data_generation()
+        return {"status": "success", "session_id": session.session_id, "message": "Experiment started"}
+    except Exception as e:
+        print(f"❌ Error starting experiment: {e}")
+        return {"status": "error", "message": str(e)}
+
+@app.post("/api/experiment/stop")
+async def stop_experiment(session: SessionStop):
+    """Stop an experiment session"""
+    try:
+        manager.stop_data_generation()
+        return {"status": "success", "session_id": session.session_id, "message": "Experiment stopped"}
+    except Exception as e:
+        print(f"❌ Error stopping experiment: {e}")
+        return {"status": "error", "message": str(e)}
+
 @app.post("/auth/v1/token")
-def authenticate(auth: AuthRequest):
-    # For now, return a mock response - in production, validate against Supabase Auth
+async def authenticate(auth: AuthRequest):
+    """Mock authentication endpoint"""
     if auth.email == "test@pocketlab.com" and auth.password == "password":
         return {
+            "access_token": "mock-access-token",
+            "token_type": "bearer",
+            "expires_in": 3600,
             "user": {
                 "id": "user-1",
                 "email": auth.email,
-                "name": "Test User",
                 "created_at": datetime.now().isoformat()
-            },
-            "access_token": "mock-access-token"
+            }
         }
     else:
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
 @app.post("/auth/v1/signup")
-def signup(auth: AuthRequest):
-    # For now, return a mock response - in production, create user in Supabase Auth
+async def signup(auth: AuthRequest):
+    """Mock signup endpoint"""
     return {
+        "access_token": "mock-access-token",
+        "token_type": "bearer",
+        "expires_in": 3600,
         "user": {
-            "id": "user-new",
+            "id": "user-1",
             "email": auth.email,
-            "name": "New User",
             "created_at": datetime.now().isoformat()
-        },
-        "access_token": "mock-access-token"
+        }
     }
-
-# Sensor data endpoints
-@app.post("/api/sensor-data")
-def store_sensor_data(data: SensorData):
-    url = f"{SUPABASE_URL}/rest/v1/sensor_data"
-    headers = {
-        "apikey": SUPABASE_SERVICE_ROLE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-        "Content-Type": "application/json"
-    }
-    resp = requests.post(url, json=data.dict(), headers=headers)
-    if resp.status_code != 201:
-        raise HTTPException(status_code=resp.status_code, detail=resp.text)
-    return {"status": "ok"}
 
 @app.get("/api/sensor-data")
-def get_sensor_data(session_id: str = None, limit: int = 100):
-    url = f"{SUPABASE_URL}/rest/v1/sensor_data"
-    if session_id:
-        url += f"?session_id=eq.{session_id}"
-    url += f"&order=timestamp.desc&limit={limit}"
-    
-    headers = {
-        "apikey": SUPABASE_SERVICE_ROLE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-        "Content-Type": "application/json"
-    }
-    resp = requests.get(url, headers=headers)
-    if resp.status_code != 200:
-        raise HTTPException(status_code=resp.status_code, detail=resp.text)
-    return resp.json()
-
-@app.get("/api/sensor-data/latest")
-def get_latest_sensor_data(session_id: str = None):
-    url = f"{SUPABASE_URL}/rest/v1/sensor_data"
-    if session_id:
-        url += f"?session_id=eq.{session_id}"
-    url += "&order=timestamp.desc&limit=1"
-    
-    headers = {
-        "apikey": SUPABASE_SERVICE_ROLE_KEY,
-        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-        "Content-Type": "application/json"
-    }
-    resp = requests.get(url, headers=headers)
-    if resp.status_code != 200:
-        raise HTTPException(status_code=resp.status_code, detail=resp.text)
-    data = resp.json()
-    return data[0] if data else None
-
-# WebSocket endpoint
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
+async def get_sensor_data(limit: int = 100):
+    """Get recent sensor data from Supabase"""
     try:
-        while True:
-            # Keep connection alive and handle any incoming messages
-            data = await websocket.receive_text()
-            # Echo back any received data
-            await manager.send_personal_message(f"Echo: {data}", websocket)
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
-
-# Experiment endpoints
-@app.post("/api/experiment/start")
-async def start_experiment():
-    manager.start_data_generation()
-    return {"status": "started", "session_id": f"session-{datetime.now().timestamp()}"}
-
-@app.post("/api/experiment/stop")
-async def stop_experiment():
-    manager.stop_data_generation()
-    return {"status": "stopped"}
-
-@app.get("/health")
-def health_check():
-    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
-
-@app.post("/api/experiment/summary")
-async def generate_experiment_summary():
-    """Generate experiment summary with statistics and AI commentary"""
-    try:
-        # Fetch recent sensor data for analysis
         url = f"{SUPABASE_URL}/rest/v1/sensor_readings"
-        url += "?order=created_at.desc&limit=100"
-        
         headers = {
             "apikey": SUPABASE_SERVICE_ROLE_KEY,
             "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
             "Content-Type": "application/json"
         }
         
-        resp = requests.get(url, headers=headers)
+        params = {
+            "order": "timestamp.desc",
+            "limit": limit
+        }
         
-        if resp.status_code == 200 and resp.json():
-            data = resp.json()
+        response = requests.get(url, headers=headers, params=params)
+        
+        if response.status_code == 200:
+            data = response.json()
+            return {"status": "success", "data": data}
+        else:
+            print(f"❌ Supabase error: {response.status_code} - {response.text}")
+            return {"status": "error", "message": "Failed to fetch data"}
             
-            # Calculate statistics
-            temperatures = [d.get("temperature", 0) for d in data]
-            pressures = [d.get("pressure", 0) for d in data]
-            accel_x = [d.get("accel_x", 0) for d in data]
-            accel_y = [d.get("accel_y", 0) for d in data]
-            accel_z = [d.get("accel_z", 0) for d in data]
+    except Exception as e:
+        print(f"❌ Error fetching sensor data: {e}")
+        return {"status": "error", "message": str(e)}
+
+@app.post("/api/experiment/summary")
+async def generate_experiment_summary():
+    """Generate experiment summary with AI commentary"""
+    try:
+        # Fetch recent data from Supabase
+        url = f"{SUPABASE_URL}/rest/v1/sensor_readings"
+        headers = {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        params = {
+            "order": "timestamp.desc",
+            "limit": 1000
+        }
+        
+        response = requests.get(url, headers=headers, params=params)
+        
+        if response.status_code == 200:
+            data = response.json()
             
-            # Calculate duration (assuming data spans the experiment)
+            if not data:
+                # No data scenario
+                return {
+                    "duration": 0,
+                    "dataPoints": 0,
+                    "statistics": {
+                        "temperature": {"min": "N/A", "max": "N/A", "avg": "N/A", "change": "N/A"},
+                        "pressure": {"min": "N/A", "max": "N/A", "avg": "N/A", "change": "N/A"},
+                        "humidity": {"min": "N/A", "max": "N/A", "avg": "N/A", "change": "N/A"},
+                        "acceleration": {"x": {"avg": "N/A"}, "y": {"avg": "N/A"}, "z": {"avg": "N/A"}},
+                        "distance": {"min": "N/A", "max": "N/A", "avg": "N/A", "change": "N/A"}
+                    },
+                    "motionEvents": 0,
+                    "events": [],
+                    "dataQuality": {"anomalies": 0, "completeness": 0},
+                    "commentary": "No data was collected during this experiment. Please ensure your ESP32 is connected and sending data to Supabase.",
+                    "timestamp": datetime.now().isoformat()
+                }
+            
+            # Calculate duration
             if len(data) > 1:
-                start_time = datetime.fromisoformat(data[-1]["created_at"].replace('Z', '+00:00'))
-                end_time = datetime.fromisoformat(data[0]["created_at"].replace('Z', '+00:00'))
-                duration = int((end_time - start_time).total_seconds())
+                duration = (data[0]["timestamp"] - data[-1]["timestamp"]) / 1000  # Convert to seconds
             else:
                 duration = 0
+            
+            # Extract sensor values
+            temperatures = [d["temperature"] for d in data if d.get("temperature")]
+            pressures = [d["pressure"] for d in data if d.get("pressure")]
+            humidities = [d["humidity"] for d in data if d.get("humidity")]
+            accel_x = [d["accel_x"] for d in data if d.get("accel_x")]
+            accel_y = [d["accel_y"] for d in data if d.get("accel_y")]
+            accel_z = [d["accel_z"] for d in data if d.get("accel_z")]
+            gyro_x = [d["gyro_x"] for d in data if d.get("gyro_x")]
+            gyro_y = [d["gyro_y"] for d in data if d.get("gyro_y")]
+            gyro_z = [d["gyro_z"] for d in data if d.get("gyro_z")]
+            distances = [d["distance"] for d in data if d.get("distance")]
             
             # Calculate statistics
             temp_stats = {
                 "min": min(temperatures) if temperatures else 0,
                 "max": max(temperatures) if temperatures else 0,
                 "avg": sum(temperatures) / len(temperatures) if temperatures else 0,
-                "change": temperatures[0] - temperatures[-1] if len(temperatures) > 1 else 0
+                "change": temperatures[-1] - temperatures[0] if len(temperatures) > 1 else 0
             }
             
             pressure_stats = {
                 "min": min(pressures) if pressures else 0,
                 "max": max(pressures) if pressures else 0,
-                "avg": sum(pressures) / len(pressures) if pressures else 0
+                "avg": sum(pressures) / len(pressures) if pressures else 0,
+                "change": pressures[-1] - pressures[0] if len(pressures) > 1 else 0
             }
-            
-            # Detect motion events (acceleration spikes)
-            motion_events = 0
-            for i in range(1, len(accel_x)):
-                accel_magnitude = ((accel_x[i] - accel_x[i-1])**2 + 
-                                 (accel_y[i] - accel_y[i-1])**2 + 
-                                 (accel_z[i] - accel_z[i-1])**2)**0.5
-                if accel_magnitude > 1000:  # Threshold for motion detection
-                    motion_events += 1
-            
-            # Generate AI commentary
-            commentary = f"Experiment completed successfully! "
-            if temp_stats["change"] > 2:
-                commentary += f"Temperature increased by {temp_stats['change']:.1f}°C, indicating active heating. "
-            elif temp_stats["change"] < -2:
-                commentary += f"Temperature decreased by {abs(temp_stats['change']):.1f}°C, showing cooling effects. "
-            else:
-                commentary += "Temperature remained relatively stable. "
-            
-            if motion_events > 0:
-                commentary += f"Detected {motion_events} motion events, suggesting device movement during experiment. "
-            
-            commentary += f"Data quality is good with {len(data)} data points collected over {duration} seconds."
             
             # Calculate additional statistics for the frontend
             humidity_stats = {
@@ -424,6 +334,20 @@ async def generate_experiment_summary():
                 "change": 0.0
             }
             
+            # Detect motion events
+            motion_events = 0
+            for i in range(1, len(data)):
+                prev = data[i-1]
+                curr = data[i]
+                if all(key in prev and key in curr for key in ["accel_x", "accel_y", "accel_z"]):
+                    accel_magnitude = math.sqrt(
+                        (curr["accel_x"] - prev["accel_x"])**2 +
+                        (curr["accel_y"] - prev["accel_y"])**2 +
+                        (curr["accel_z"] - prev["accel_z"])**2
+                    )
+                    if accel_magnitude > 2.0:  # Threshold for motion detection
+                        motion_events += 1
+            
             # Generate events based on detected anomalies
             events = []
             if motion_events > 0:
@@ -442,6 +366,20 @@ async def generate_experiment_summary():
                     "timestamp": datetime.now().isoformat()
                 })
             
+            # Generate AI commentary
+            commentary = f"Experiment completed successfully! "
+            if temp_stats["change"] > 2:
+                commentary += f"Temperature increased by {temp_stats['change']:.1f}°C, indicating active heating. "
+            elif temp_stats["change"] < -2:
+                commentary += f"Temperature decreased by {abs(temp_stats['change']):.1f}°C, showing cooling effects. "
+            else:
+                commentary += "Temperature remained relatively stable. "
+            
+            if motion_events > 0:
+                commentary += f"Detected {motion_events} motion events, suggesting device movement during experiment. "
+            
+            commentary += f"Data quality is good with {len(data)} data points collected over {duration:.0f} seconds."
+            
             summary = {
                 "duration": duration,
                 "dataPoints": len(data),
@@ -455,7 +393,7 @@ async def generate_experiment_summary():
                 "motionEvents": motion_events,
                 "events": events,
                 "dataQuality": {
-                    "anomalies": 0,  # Could implement anomaly detection
+                    "anomalies": 0,
                     "completeness": 100
                 },
                 "commentary": commentary,
@@ -463,146 +401,18 @@ async def generate_experiment_summary():
             }
             
             return summary
+            
         else:
-            return {
-                "duration": 0,
-                "dataPoints": 0,
-                "statistics": {
-                    "temperature": {"min": "N/A", "max": "N/A", "avg": "N/A", "change": "N/A"},
-                    "pressure": {"min": "N/A", "max": "N/A", "avg": "N/A", "change": "N/A"},
-                    "humidity": {"min": "N/A", "max": "N/A", "avg": "N/A", "change": "N/A"},
-                    "acceleration": {"x": {"avg": "N/A"}, "y": {"avg": "N/A"}, "z": {"avg": "N/A"}},
-                    "distance": {"min": "N/A", "max": "N/A", "avg": "N/A", "change": "N/A"}
-                },
-                "motionEvents": 0,
-                "events": [],
-                "dataQuality": {"anomalies": 0, "completeness": 0},
-                "commentary": "No data was collected during this experiment. Please ensure your ESP32 is connected and sending data to Supabase.",
-                "timestamp": datetime.now().isoformat()
-            }
+            print(f"❌ Supabase error: {response.status_code} - {response.text}")
+            return {"status": "error", "message": "Failed to fetch data for summary"}
             
     except Exception as e:
-        print(f"Error generating experiment summary: {e}")
-        return {
-            "duration": 0,
-            "dataPoints": 0,
-            "statistics": {
-                "temperature": {"min": "N/A", "max": "N/A", "avg": "N/A", "change": "N/A"},
-                "pressure": {"min": "N/A", "max": "N/A", "avg": "N/A", "change": "N/A"},
-                "humidity": {"min": "N/A", "max": "N/A", "avg": "N/A", "change": "N/A"},
-                "acceleration": {"x": {"avg": "N/A"}, "y": {"avg": "N/A"}, "z": {"avg": "N/A"}},
-                "distance": {"min": "N/A", "max": "N/A", "avg": "N/A", "change": "N/A"}
-            },
-            "motionEvents": 0,
-            "events": [],
-            "dataQuality": {"anomalies": 0, "completeness": 0},
-            "commentary": "No data was collected during this experiment. Please ensure your ESP32 is connected and sending data to Supabase.",
-            "timestamp": datetime.now().isoformat()
-        }
-
-@app.get("/test-supabase")
-def test_supabase_connection():
-    """Test endpoint to verify Supabase connection"""
-    try:
-        # Test basic connection
-        url = f"{SUPABASE_URL}/rest/v1/"
-        headers = {
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-            "Content-Type": "application/json"
-        }
-        resp = requests.get(url, headers=headers)
-        
-        if resp.status_code == 200:
-            return {
-                "status": "connected",
-                "supabase_url": SUPABASE_URL,
-                "message": "Successfully connected to Supabase"
-            }
-        else:
-            return {
-                "status": "error",
-                "supabase_url": SUPABASE_URL,
-                "error": resp.text,
-                "status_code": resp.status_code
-            }
-    except Exception as e:
-        return {
-            "status": "error",
-            "supabase_url": SUPABASE_URL,
-            "error": str(e)
-        }
-
-@app.get("/test-sensor-data")
-def test_sensor_data_fetch():
-    """Test endpoint to manually fetch and return sensor data"""
-    try:
-        # Fetch latest sensor data from Supabase
-        url = f"{SUPABASE_URL}/rest/v1/sensor_readings"
-        url += "?order=created_at.desc&limit=1"
-        
-        headers = {
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-            "Content-Type": "application/json"
-        }
-        
-        resp = requests.get(url, headers=headers)
-        
-        if resp.status_code == 200 and resp.json():
-            # Use real data from Supabase
-            data = resp.json()[0]
-            timestamp = int(time.time() * 1000)
-            
-            sensor_data = {
-                "type": "sensor_update",
-                "data": {
-                    "timestamp": timestamp,
-                    "temperature": {
-                        "value": data.get("temperature", 25.0)
-                    },
-                    "acceleration": {
-                        "x": (data.get("accel_x", 0) / 16384.0) * 9.81,  # Convert raw to m/s²
-                        "y": (data.get("accel_y", 0) / 16384.0) * 9.81,
-                        "z": (data.get("accel_z", 16384) / 16384.0) * 9.81
-                    },
-                    "gyroscope": {
-                        "pitch": (data.get("gyro_x", 0) / 131.0) * (math.pi / 180),  # Convert raw to rad/s
-                        "roll": (data.get("gyro_y", 0) / 131.0) * (math.pi / 180),
-                        "yaw": (data.get("gyro_z", 0) / 131.0) * (math.pi / 180)
-                    },
-                    "bme688": {
-                        "temperature": data.get("temperature", 25.0),
-                        "humidity": 60.0,  # Default humidity since not in sensor_readings
-                        "pressure": data.get("pressure", 1013.0) * 100,  # Convert hPa to Pa
-                        "voc": 200.0  # Default VOC value since not in schema
-                    },
-                    "ultrasonic": {
-                        "distance": 25.0  # Default distance value
-                    }
-                }
-            }
-            
-            return {
-                "status": "success",
-                "raw_data": data,
-                "processed_data": sensor_data,
-                "message": "Successfully fetched and processed sensor data"
-            }
-        else:
-            return {
-                "status": "no_data",
-                "message": "No sensor data available in Supabase"
-            }
-    except Exception as e:
-        return {
-            "status": "error",
-            "error": str(e)
-        }
+        print(f"❌ Error generating experiment summary: {e}")
+        return {"status": "error", "message": str(e)}
 
 @app.post("/api/experiment/summary-no-data")
 async def generate_experiment_summary_no_data():
-    """Test endpoint that simulates no data scenario"""
+    """Test endpoint for no data scenario"""
     return {
         "duration": 0,
         "dataPoints": 0,
@@ -619,6 +429,117 @@ async def generate_experiment_summary_no_data():
         "commentary": "No data was collected during this experiment. Please ensure your ESP32 is connected and sending data to Supabase.",
         "timestamp": datetime.now().isoformat()
     }
+
+@app.get("/test-supabase")
+async def test_supabase():
+    """Test Supabase connection"""
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/sensor_readings"
+        headers = {
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        response = requests.get(url, headers=headers, params={"limit": 1})
+        
+        if response.status_code == 200:
+            return {"status": "success", "message": "Supabase connection working", "data": response.json()}
+        else:
+            return {"status": "error", "message": f"Supabase error: {response.status_code}", "response": response.text}
+            
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+# WebSocket endpoint
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Keep connection alive
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+# Background task to generate and broadcast sensor data
+async def generate_sensor_data():
+    """Generate sensor data and broadcast to connected clients"""
+    print("🔄 Starting sensor data generation loop")
+    
+    while True:
+        try:
+            if len(manager.active_connections) > 0:
+                # Fetch real data from Supabase
+                url = f"{SUPABASE_URL}/rest/v1/sensor_readings"
+                headers = {
+                    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+                    "Content-Type": "application/json"
+                }
+                
+                params = {
+                    "order": "timestamp.desc",
+                    "limit": 1
+                }
+                
+                response = requests.get(url, headers=headers, params=params)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    
+                    if data:
+                        # Use real data from Supabase
+                        latest = data[0]
+                        
+                        # Transform to frontend format
+                        sensor_data = {
+                            "type": "sensor_update",
+                            "data": {
+                                "timestamp": latest["timestamp"],
+                                "temperature": {
+                                    "value": latest["temperature"]
+                                },
+                                "acceleration": {
+                                    "x": latest["accel_x"],
+                                    "y": latest["accel_y"],
+                                    "z": latest["accel_z"]
+                                },
+                                "gyroscope": {
+                                    "pitch": (latest["gyro_x"] / 131.0) * (math.pi / 180),  # Convert raw to rad/s
+                                    "roll": (latest["gyro_y"] / 131.0) * (math.pi / 180),
+                                    "yaw": (latest["gyro_z"] / 131.0) * (math.pi / 180)
+                                },
+                                "bme688": {
+                                    "temperature": latest["temperature"],
+                                    "humidity": latest["humidity"],
+                                    "pressure": latest["pressure"],
+                                    "voc": latest["voc"]
+                                },
+                                "ultrasonic": {
+                                    "distance": latest["distance"]
+                                }
+                            }
+                        }
+                        
+                        # Broadcast to all connected clients
+                        await manager.broadcast(json.dumps(sensor_data))
+                        print(f"📡 Broadcasted real sensor data to {len(manager.active_connections)} clients")
+                    else:
+                        print("📊 No data in Supabase, not broadcasting")
+                else:
+                    print(f"❌ Supabase error: {response.status_code}")
+                
+                await asyncio.sleep(0.1)  # 10Hz data rate
+                
+            else:
+                # No active connections, sleep longer
+                await asyncio.sleep(1)
+                
+        except Exception as e:
+            print(f"❌ Error in sensor data generation: {e}")
+            # Don't send mock data on error - keep graphs empty
+            await asyncio.sleep(0.1)
 
 if __name__ == "__main__":
     import uvicorn

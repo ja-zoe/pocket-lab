@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { 
   Play, 
   Pause, 
@@ -10,7 +11,11 @@ import {
   Clock,
   Target,
   AlertCircle,
-  Download
+  Download,
+  FlaskConical,
+  BookOpen,
+  History,
+  LogOut
 } from 'lucide-react';
 import * as ExperimentData from '../data/experimentTemplates';
 import { useSimpleSpikeFilter } from '../hooks/useSimpleSpikeFilter';
@@ -35,6 +40,7 @@ interface SensorData {
 }
 
 const ExperimentRunnerPage: React.FC = () => {
+  const { user, logout } = useAuth();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [template, setTemplate] = useState<ExperimentData.ExperimentTemplate | null>(null);
@@ -265,6 +271,15 @@ const ExperimentRunnerPage: React.FC = () => {
     return ((currentStepIndex + 1) / template.steps.length) * 100;
   };
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Failed to logout:', error);
+    }
+  };
+
   if (!template) {
     return (
       <div className="min-h-screen bg-gray-900 flex items-center justify-center">
@@ -279,29 +294,64 @@ const ExperimentRunnerPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 pt-24">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="flex items-center gap-3 bg-gradient-to-r from-teal-600 to-green-600 hover:from-teal-700 hover:to-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-teal-500/25 hover:scale-105"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            Back to Dashboard
-          </button>
-          
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-white">{template.title}</h1>
-            <p className="text-gray-400">{template.category} • {template.difficulty}</p>
-            <button
-              onClick={() => navigate('/experiments')}
-              className="text-sm text-teal-400 hover:text-teal-300 transition-colors mt-1"
-            >
-              ← Back to Experiments
-            </button>
+      {/* Enhanced Header */}
+      <header className="bg-gray-900/95 backdrop-blur-sm fixed top-0 left-0 right-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <FlaskConical className="w-8 h-8 text-blue-500 hover:text-blue-400 transition-colors" />
+                <h1 className="text-2xl font-bold text-white">PocketLab</h1>
+              </div>
+              <span className="text-sm text-gray-400 hidden sm:block">Experiment Runner</span>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <Link
+                to="/dashboard"
+                className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors hover-lift"
+              >
+                <BookOpen className="w-5 h-5" />
+                <span className="hidden sm:block">Dashboard</span>
+              </Link>
+              
+              <Link
+                to="/experiments"
+                className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors hover-lift"
+              >
+                <BookOpen className="w-5 h-5" />
+                <span className="hidden sm:block">Experiments</span>
+              </Link>
+              
+              <Link
+                to="/history"
+                className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors hover-lift"
+              >
+                <History className="w-5 h-5" />
+                <span className="hidden sm:block">History</span>
+              </Link>
+              
+              <div className="flex items-center space-x-2 text-gray-300">
+                <span className="text-sm hidden sm:block">{user?.email}</span>
+              </div>
+              
+              <button
+                onClick={handleLogout}
+                className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors hover-lift"
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="hidden sm:block">Logout</span>
+              </button>
+            </div>
           </div>
+        </div>
+      </header>
 
-          <div className="w-24"></div> {/* Spacer */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Page Title */}
+        <div className="text-center mb-6">
+          <h1 className="text-2xl font-bold text-white">{template.title}</h1>
+          <p className="text-gray-400">{template.category} • {template.difficulty}</p>
         </div>
 
         {/* Progress Bar */}

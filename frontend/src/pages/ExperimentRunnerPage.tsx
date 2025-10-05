@@ -18,6 +18,7 @@ import {
   LogOut
 } from 'lucide-react';
 import * as ExperimentData from '../data/experimentTemplates';
+import type { SensorData } from '../types/sensorData';
 import { useSimpleSpikeFilter } from '../hooks/useSimpleSpikeFilter';
 import BME688Chart from '../components/BME688Chart';
 import AccelerationCombined from '../components/AccelerationCombined';
@@ -59,22 +60,6 @@ const getRequiredGraphs = (experimentId: string) => {
     distance: true
   };
 };
-
-interface SensorData {
-  timestamp: number;
-  temperature: number;
-  pressure: number;
-  humidity: number;
-  gasResistance: number;
-  vocIndex: number;
-  accelX: number;
-  accelY: number;
-  accelZ: number;
-  gyroX: number;
-  gyroY: number;
-  gyroZ: number;
-  distance: number;
-}
 
 const ExperimentRunnerPage: React.FC = () => {
   const { user, logout } = useAuth();
@@ -217,17 +202,25 @@ const ExperimentRunnerPage: React.FC = () => {
         const newData: SensorData = {
           timestamp: now,
           temperature: 20 + Math.sin(now * 0.001) * 5 + Math.random() * 2,
-          pressure: 101300 + Math.sin(now * 0.0005) * 1000 + Math.random() * 100,
-          humidity: 50 + Math.sin(now * 0.0008) * 10 + Math.random() * 5,
-          gasResistance: 1000 + Math.sin(now * 0.0003) * 200 + Math.random() * 50,
-          vocIndex: 100 + Math.sin(now * 0.0007) * 20 + Math.random() * 10,
-          accelX: Math.sin(now * 0.002) * 2 + Math.random() * 0.5,
-          accelY: Math.cos(now * 0.0015) * 1.5 + Math.random() * 0.3,
-          accelZ: 9.81 + Math.sin(now * 0.001) * 0.5 + Math.random() * 0.2,
-          gyroX: Math.sin(now * 0.001) * 0.5 + Math.random() * 0.1,
-          gyroY: Math.cos(now * 0.0008) * 0.3 + Math.random() * 0.08,
-          gyroZ: Math.sin(now * 0.0012) * 0.6 + Math.random() * 0.15,
-          distance: 0.5 + Math.sin(now * 0.0015) * 0.4 + Math.random() * 0.1
+          acceleration: {
+            x: (Math.sin(now * 0.002) * 2 + Math.random() * 0.5) * 9.81,  // Convert g to m/s²
+            y: (Math.cos(now * 0.0015) * 1.5 + Math.random() * 0.3) * 9.81,  // Convert g to m/s²
+            z: (1 + Math.sin(now * 0.001) * 0.5 + Math.random() * 0.2) * 9.81  // Convert g to m/s²
+          },
+          gyroscope: {
+            pitch: (Math.sin(now * 0.001) * 0.5 + Math.random() * 0.1) * (Math.PI / 180),  // Convert dps to rad/s
+            roll: (Math.cos(now * 0.0008) * 0.3 + Math.random() * 0.08) * (Math.PI / 180),  // Convert dps to rad/s
+            yaw: (Math.sin(now * 0.0012) * 0.6 + Math.random() * 0.15) * (Math.PI / 180)   // Convert dps to rad/s
+          },
+          bme688: {
+            temperature: 20 + Math.sin(now * 0.001) * 5 + Math.random() * 2,
+            humidity: 50 + Math.sin(now * 0.0008) * 10 + Math.random() * 5,
+            pressure: 101300 + Math.sin(now * 0.0005) * 1000 + Math.random() * 100,
+            voc: 100 + Math.sin(now * 0.0007) * 20 + Math.random() * 10
+          },
+          ultrasonic: {
+            distance: 0.5 + Math.sin(now * 0.0015) * 0.4 + Math.random() * 0.1
+          }
         };
 
         setSensorData(prev => [...prev.slice(-100), newData]);
@@ -287,21 +280,21 @@ const ExperimentRunnerPage: React.FC = () => {
         }
         break;
       case 'motion_detected':
-        const acceleration = Math.sqrt(latestData.accelX ** 2 + latestData.accelY ** 2 + latestData.accelZ ** 2);
+        const acceleration = Math.sqrt(latestData.acceleration.x ** 2 + latestData.acceleration.y ** 2 + latestData.acceleration.z ** 2);
         conditionSatisfied = acceleration >= currentStep.condition.threshold;
         break;
       case 'distance_change':
         if (sensorData.length > 5) {
           const recent = sensorData.slice(-5);
-          const avgDistance = recent.reduce((sum, d) => sum + d.distance, 0) / recent.length;
+          const avgDistance = recent.reduce((sum, d) => sum + d.ultrasonic.distance, 0) / recent.length;
           conditionSatisfied = Math.abs(avgDistance - 0.5) >= currentStep.condition.threshold;
         }
         break;
       case 'pressure_change':
         if (sensorData.length > 10) {
           const recent = sensorData.slice(-10);
-          const oldest = recent[0].pressure;
-          const newest = recent[recent.length - 1].pressure;
+          const oldest = recent[0].bme688.pressure;
+          const newest = recent[recent.length - 1].bme688.pressure;
           conditionSatisfied = Math.abs(newest - oldest) >= currentStep.condition.threshold;
         }
         break;
@@ -600,9 +593,9 @@ const ExperimentRunnerPage: React.FC = () => {
                     <div key={`gyro-${filteredData.length}`} className="bg-gray-800 rounded-xl p-6 border border-gray-700">
                       <h3 className="text-lg font-semibold text-white mb-4">3D Gyroscope</h3>
                       <Gyroscope3D
-                        pitch={filteredData[filteredData.length - 1]?.gyroX || 0}
-                        roll={filteredData[filteredData.length - 1]?.gyroZ || 0}
-                        yaw={filteredData[filteredData.length - 1]?.gyroY || 0}
+                        pitch={filteredData[filteredData.length - 1]?.gyroscope?.pitch || 0}
+                        roll={filteredData[filteredData.length - 1]?.gyroscope?.roll || 0}
+                        yaw={filteredData[filteredData.length - 1]?.gyroscope?.yaw || 0}
                         width={600}
                         height={300}
                       />

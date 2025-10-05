@@ -501,14 +501,14 @@ async def generate_sensor_data():
                                     "value": latest["temperature"]
                                 },
                                 "acceleration": {
-                                    "x": latest["accel_x"],
-                                    "y": latest["accel_y"],
-                                    "z": latest["accel_z"]
+                                    "x": latest["accel_x"] * 9.81,  # Convert g to m/s²
+                                    "y": latest["accel_y"] * 9.81,  # Convert g to m/s²
+                                    "z": latest["accel_z"] * 9.81   # Convert g to m/s²
                                 },
                                 "gyroscope": {
-                                    "pitch": (latest["gyro_x"] / 131.0) * (math.pi / 180),  # Convert raw to rad/s
-                                    "roll": (latest["gyro_y"] / 131.0) * (math.pi / 180),
-                                    "yaw": (latest["gyro_z"] / 131.0) * (math.pi / 180)
+                                    "pitch": latest["gyro_x"] * (math.pi / 180),  # Convert dps to rad/s
+                                    "roll": latest["gyro_y"] * (math.pi / 180),   # Convert dps to rad/s
+                                    "yaw": latest["gyro_z"] * (math.pi / 180)     # Convert dps to rad/s
                                 },
                                 "bme688": {
                                     "temperature": latest["temperature"],

@@ -28,32 +28,7 @@ import SpikeFilterControls from '../components/SpikeFilterControls';
 import ExperimentSummary from '../components/ExperimentSummary';
 import { useSimpleSpikeFilter } from '../hooks/useSimpleSpikeFilter';
 
-interface SensorData {
-  timestamp: number;
-  temperature: number;
-  acceleration: {
-    x: number;
-    y: number;
-    z: number;
-  };
-  // Gyroscope data (Euler angles in degrees)
-  gyroscope: {
-    pitch: number;  // X-axis rotation
-    roll: number;   // Y-axis rotation
-    yaw: number;    // Z-axis rotation
-  };
-  // BME688 Environmental Sensor Data
-  bme688: {
-    temperature: number;
-    humidity: number;
-    pressure: number;
-    voc: number;
-  };
-  // Ultrasonic Distance Sensor Data
-  ultrasonic: {
-    distance: number;
-  };
-}
+import type { SensorData } from '../types/sensorData';
 
 const DashboardPage: React.FC = () => {
   const { user, logout } = useAuth();
@@ -337,7 +312,8 @@ const DashboardPage: React.FC = () => {
 
   const exportCSV = async () => {
     try {
-      const blob = await mockSensorAPI.exportCSV();
+      const csvData = await mockSensorAPI.exportData('csv');
+      const blob = new Blob([csvData], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

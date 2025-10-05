@@ -38,14 +38,16 @@ const AccelerationCombined: React.FC<AccelerationCombinedProps> = ({
       timestamp: item.time, // Keep original timestamp
       timeString: item.timeString, // For display
       time: item.time,
-      accelX: item.accelX,
-      accelY: item.accelY,
-      accelZ: item.accelZ,
+      accelX: item.acceleration?.x || 0,
+      accelY: item.acceleration?.y || 0,
+      accelZ: item.acceleration?.z || 0,
     }));
   }, [data]);
 
   const currentConfig = viewConfig[selectedView];
-  const currentData = (data && data.length > 0) ? data[data.length - 1] : { accelX: 0, accelY: 0, accelZ: 0 };
+  const currentData = (data && data.length > 0) ? data[data.length - 1] : { 
+    acceleration: { x: 0, y: 0, z: 0 } 
+  };
 
   // Custom tooltip for time series
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -227,9 +229,9 @@ const AccelerationCombined: React.FC<AccelerationCombinedProps> = ({
           {currentData ? (
             <Acceleration3D 
               acceleration={{
-                x: currentData.accelX,
-                y: currentData.accelY,
-                z: currentData.accelZ
+                x: currentData.acceleration?.x || 0,
+                y: currentData.acceleration?.y || 0,
+                z: currentData.acceleration?.z || 0
               }}
               width={width}
               height={320}

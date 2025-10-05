@@ -9,8 +9,6 @@ interface Acceleration3DProps {
     y: number;
     z: number;
   };
-  width?: number;
-  height?: number;
 }
 
 // 3D Acceleration visualization component
@@ -201,15 +199,13 @@ const AccelerationVisualization: React.FC<{ acceleration: { x: number; y: number
 };
 
 const Acceleration3D: React.FC<Acceleration3DProps> = ({ 
-  acceleration, 
-  width = 500, 
-  height = 400 
+  acceleration
 }) => {
   return (
-    <div style={{ width, height }} className="border border-gray-600 rounded-lg overflow-hidden hover:border-gray-500 transition-all duration-200 shadow-sm">
+    <div className="w-full h-full border border-gray-600 rounded-lg overflow-hidden hover:border-gray-500 transition-all duration-200 shadow-sm">
       <Canvas
         camera={{ position: [8, 8, 8], fov: 50 }}
-        style={{ background: 'transparent' }}
+        style={{ background: 'transparent', width: '100%', height: '100%' }}
       >
         {/* Lighting */}
         <ambientLight intensity={0.4} />

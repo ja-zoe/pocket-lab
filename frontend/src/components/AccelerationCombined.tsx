@@ -5,15 +5,12 @@ import Acceleration3D from './Acceleration3D';
 
 interface AccelerationCombinedProps {
   data: any[];
-  width?: number;
-  height?: number;
 }
 
 type ViewType = 'timeSeries' | '3d';
 
 const AccelerationCombined: React.FC<AccelerationCombinedProps> = ({ 
-  data, 
-  width = 600
+  data
 }) => {
   const [selectedView, setSelectedView] = useState<ViewType>('timeSeries');
 
@@ -233,8 +230,6 @@ const AccelerationCombined: React.FC<AccelerationCombinedProps> = ({
                 y: currentData.acceleration?.y || 0,
                 z: currentData.acceleration?.z || 0
               }}
-              width={width}
-              height={320}
             />
           ) : (
             <div className="h-full flex items-center justify-center text-gray-400">

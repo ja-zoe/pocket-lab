@@ -1,13 +1,10 @@
 #include <Wire.h>
 #include <WiFi.h>
 #include <ESPSupabase.h>
-#include <MPU6050.h>
 #include "secrets.h"
+#include "Sensors.h"
 
-const String table = "minimal_data";
-
-// Accelerometer
-MPU6050 mpu;
+const String table = "sensor_readings";
 
 // db init
 Supabase db;
@@ -24,42 +21,52 @@ void setup() {
   }
   Serial.println("\n✅ WiFi connected!");
 
-  // Initialize I2C and MPU6050
-  Wire.begin();
-  mpu.initialize();
-  if (mpu.testConnection()) {
-    Serial.println("✅ MPU6050 ready");
-  } else {
-    Serial.println("⚠️ MPU6050 not detected!");
-  }
+  // Initialize sensors
+  initSensors();
 
   // Initialize Supabase
   db.begin(SUPABASE_URL, SUPABASE_KEY);
 }
 
 void loop() {
-  // Read accelerometer values
-  int16_t ax, ay, az, gx, gy, gz;
-  mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+  // Read sensors
+  BMP280Data bmpData = readBMP280();
+  QMC5883Data qmcData = readQMC5883();
+  MPU6050Data mpuData = readMPU6050();
 
-  // Convert to g-force
-  float ax_g = ax / 16384.0;
-  float ay_g = ay / 16384.0;
-  float az_g = az / 16384.0;
+  // Build JSON payload for Supabase
+  String payload = "{";
+  payload += "\"device_id\":\"esp32_01\",";
+  
+  // BMP280
+  payload += "\"temperature\":" + String(bmpData.temperature, 2) + ",";
+  payload += "\"pressure\":" + String(bmpData.pressure, 2) + ",";
 
-  // Build JSON payload
-  String payload = String("{\"accel_x\":") + ax_g + ",\"accel_y\":" + ay_g + ",\"accel_z\":" + az_g + "}";
+  // QMC5883
+  payload += "\"mag_x\":" + String(qmcData.x, 3) + ",";
+  payload += "\"mag_y\":" + String(qmcData.y, 3) + ",";
+  payload += "\"mag_z\":" + String(qmcData.z, 3) + ",";
+
+  // MPU6050
+  payload += "\"accel_x\":" + String(mpuData.ax) + ",";
+  payload += "\"accel_y\":" + String(mpuData.ay) + ",";
+  payload += "\"accel_z\":" + String(mpuData.az) + ",";
+  payload += "\"gyro_x\":" + String(mpuData.gx) + ",";
+  payload += "\"gyro_y\":" + String(mpuData.gy) + ",";
+  payload += "\"gyro_z\":" + String(mpuData.gz); // <- no trailing comma
+
+  payload += "}";
 
   // Send data to Supabase
-  if (WiFi.status() == WL_CONNECTED) {
-    int code = db.insert(table, payload, false);
-    if (code == 200 || code == 201) {
-      Serial.println("✅ Data sent successfully");
-    } else {
-      Serial.printf("⚠️ Error sending data: %d\n", code);
-    }
-    db.urlQuery_reset();
+  int code = db.insert(table, payload, false);
+  if (code == 200 || code == 201) {
+    Serial.println("✅ Sensor data sent successfully");
+  } else {
+    Serial.printf("⚠️ Error sending sensor data: %d\n", code);
   }
 
-  delay(2000); // Send every 2 seconds
+  // Reset URL query buffer
+  db.urlQuery_reset();
+
+  delay(2000); // send every 2 seconds
 }

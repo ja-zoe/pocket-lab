@@ -735,7 +735,6 @@ const DashboardPage: React.FC = () => {
             </div>
             
             <div className="flex items-center space-x-4">
-              <MockDataToggle />
               <Link
                 to="/experiments"
                 className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors hover-lift"
@@ -786,6 +785,11 @@ const DashboardPage: React.FC = () => {
                 <p className="text-gray-400 text-sm mt-2">
                   Choose from curated science experiments with step-by-step guidance
                 </p>
+              </div>
+              
+              {/* Mock Data Toggle */}
+              <div className="flex justify-center lg:justify-end">
+                <MockDataToggle />
               </div>
               
               {/* Session Status Section */}

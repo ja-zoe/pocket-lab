@@ -434,7 +434,6 @@ const ExperimentRunnerPage: React.FC = () => {
             </div>
             
             <div className="flex items-center space-x-4">
-              <MockDataToggle />
               <Link
                 to="/dashboard"
                 className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors hover-lift"
@@ -552,6 +551,11 @@ const ExperimentRunnerPage: React.FC = () => {
             </div>
 
             {/* Controls */}
+            {/* Mock Data Toggle */}
+            <div className="mb-6 flex justify-center">
+              <MockDataToggle />
+            </div>
+            
             <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
               <h3 className="text-lg font-semibold text-white mb-4">Experiment Controls</h3>
               

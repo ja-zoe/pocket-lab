@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -117,6 +117,72 @@ const ExperimentRunnerPage: React.FC = () => {
     }));
   }, [filteredData]);
 
+  // Define functions before useEffects that use them
+  const stopExperiment = useCallback(() => {
+    setIsRunning(false);
+    // Clear both intervals when stopping
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+  }, []);
+
+  const nextStep = useCallback(() => {
+    if (!template) return;
+
+    // Save current step data
+    const currentStep = template.steps[currentStepIndex];
+    setStepData(prev => ({
+      ...prev,
+      [currentStep.id]: [...sensorData]
+    }));
+    setCompletedSteps(prev => new Set([...prev, currentStep.id]));
+
+    // Move to next step
+    if (currentStepIndex < template.steps.length - 1) {
+      setCurrentStepIndex(currentStepIndex + 1);
+      setStepStartTime(Date.now());
+      setStepElapsedTime(0);
+      setConditionMet(false);
+    } else {
+      // Experiment completed
+      stopExperiment();
+      navigate(`/experiment/${id}/results`);
+    }
+  }, [template, currentStepIndex, sensorData, id, navigate, stopExperiment]);
+
+  const startExperiment = () => {
+    setIsRunning(true);
+    setExperimentStartTime(Date.now());
+    setStepStartTime(Date.now());
+    setStepElapsedTime(0);
+    // Clear previous data and start fresh
+    setSensorData([]);
+    setStepData({});
+    setCompletedSteps(new Set());
+    setCurrentStepIndex(0);
+  };
+
+  const pauseExperiment = () => {
+    setIsRunning(false);
+  };
+
+  const resumeExperiment = () => {
+    setIsRunning(true);
+    setStepStartTime(Date.now() - stepElapsedTime * 1000);
+  };
+
+  const previousStep = () => {
+    if (currentStepIndex > 0) {
+      setCurrentStepIndex(currentStepIndex - 1);
+      setStepStartTime(Date.now());
+      setStepElapsedTime(0);
+      setConditionMet(false);
+    }
+  };
+
   // Load experiment template
   useEffect(() => {
     if (id) {
@@ -184,6 +250,20 @@ const ExperimentRunnerPage: React.FC = () => {
     };
   }, [isRunning]); // Run when isRunning changes
 
+  // Check if step duration has been reached
+  useEffect(() => {
+    if (!template || !isRunning || !stepStartTime) return;
+
+    const currentStep = template.steps[currentStepIndex];
+    const stepDurationMs = currentStep.duration * 1000; // Convert seconds to milliseconds
+    const elapsedMs = Date.now() - stepStartTime;
+
+    if (elapsedMs >= stepDurationMs) {
+      // Step duration reached, move to next step
+      nextStep();
+    }
+  }, [stepElapsedTime, template, currentStepIndex, isRunning, stepStartTime, nextStep]);
+
   // Check step conditions
   useEffect(() => {
     if (!template || !isRunning || sensorData.length === 0) return;
@@ -244,70 +324,6 @@ const ExperimentRunnerPage: React.FC = () => {
     }
   }, [conditionMet, template, currentStepIndex]);
 
-  const startExperiment = () => {
-    setIsRunning(true);
-    setExperimentStartTime(Date.now());
-    setStepStartTime(Date.now());
-    setStepElapsedTime(0);
-    // Clear previous data and start fresh
-    setSensorData([]);
-    setStepData({});
-    setCompletedSteps(new Set());
-    setCurrentStepIndex(0);
-  };
-
-  const pauseExperiment = () => {
-    setIsRunning(false);
-  };
-
-  const resumeExperiment = () => {
-    setIsRunning(true);
-    setStepStartTime(Date.now() - stepElapsedTime * 1000);
-  };
-
-  const stopExperiment = () => {
-    setIsRunning(false);
-    // Clear both intervals when stopping
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-  };
-
-  const nextStep = () => {
-    if (!template) return;
-
-    // Save current step data
-    const currentStep = template.steps[currentStepIndex];
-    setStepData(prev => ({
-      ...prev,
-      [currentStep.id]: [...sensorData]
-    }));
-    setCompletedSteps(prev => new Set([...prev, currentStep.id]));
-
-    // Move to next step
-    if (currentStepIndex < template.steps.length - 1) {
-      setCurrentStepIndex(currentStepIndex + 1);
-      setStepStartTime(Date.now());
-      setStepElapsedTime(0);
-      setConditionMet(false);
-    } else {
-      // Experiment completed
-      stopExperiment();
-      navigate(`/experiment/${id}/results`);
-    }
-  };
-
-  const previousStep = () => {
-    if (currentStepIndex > 0) {
-      setCurrentStepIndex(currentStepIndex - 1);
-      setStepStartTime(Date.now());
-      setStepElapsedTime(0);
-      setConditionMet(false);
-    }
-  };
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

@@ -23,6 +23,7 @@ const ExperimentSelectionPage: React.FC = () => {
   const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('All');
+  const [expandedObjectives, setExpandedObjectives] = useState<Set<string>>(new Set());
 
   const categories = ['All', 'Physics', 'Chemistry', 'Environmental', 'Biology'];
   const difficulties = ['All', 'Beginner', 'Intermediate', 'Advanced'];
@@ -44,6 +45,18 @@ const ExperimentSelectionPage: React.FC = () => {
       case 'Advanced': return 'bg-red-100 text-red-800 border-red-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
+  };
+
+  const toggleObjectives = (experimentId: string) => {
+    setExpandedObjectives(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(experimentId)) {
+        newSet.delete(experimentId);
+      } else {
+        newSet.add(experimentId);
+      }
+      return newSet;
+    });
   };
 
   const filteredExperiments = ExperimentData.experimentTemplates.filter(experiment => {
@@ -200,15 +213,26 @@ const ExperimentSelectionPage: React.FC = () => {
               <div className="mb-4">
                 <h4 className="text-white font-medium mb-2 text-sm">Learning Objectives:</h4>
                 <ul className="text-gray-400 text-xs space-y-1">
-                  {experiment.learningObjectives.slice(0, 2).map((objective, index) => (
+                  {(expandedObjectives.has(experiment.id) 
+                    ? experiment.learningObjectives 
+                    : experiment.learningObjectives.slice(0, 2)
+                  ).map((objective, index) => (
                     <li key={index} className="flex items-start gap-2">
                       <span className="text-teal-400 mt-1">•</span>
                       <span>{objective}</span>
                     </li>
                   ))}
                   {experiment.learningObjectives.length > 2 && (
-                    <li className="text-teal-400 text-xs">
-                      +{experiment.learningObjectives.length - 2} more...
+                    <li>
+                      <button
+                        onClick={() => toggleObjectives(experiment.id)}
+                        className="text-teal-400 text-xs hover:text-teal-300 transition-colors cursor-pointer"
+                      >
+                        {expandedObjectives.has(experiment.id) 
+                          ? 'Show less' 
+                          : `+${experiment.learningObjectives.length - 2} more...`
+                        }
+                      </button>
                     </li>
                   )}
                 </ul>

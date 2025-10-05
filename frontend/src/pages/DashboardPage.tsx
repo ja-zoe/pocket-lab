@@ -9,6 +9,7 @@ import {
   Download,
   LogOut,
   History,
+  BookOpen,
   Thermometer,
   Activity,
   Droplets,
@@ -579,6 +580,14 @@ const DashboardPage: React.FC = () => {
             
             <div className="flex items-center space-x-4">
               <Link
+                to="/experiments"
+                className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors hover-lift"
+              >
+                <BookOpen className="w-5 h-5" />
+                <span className="hidden sm:block">Experiments</span>
+              </Link>
+              
+              <Link
                 to="/history"
                 className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors hover-lift"
               >
@@ -608,6 +617,20 @@ const DashboardPage: React.FC = () => {
         <div className="mb-8">
           <div className="card-glow p-6 animate-fade-in">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+              {/* Guided Experiment Button */}
+              <div className="mb-4 lg:mb-0">
+                <Link
+                  to="/experiments"
+                  className="inline-flex items-center space-x-2 bg-gradient-to-r from-teal-600 to-green-600 hover:from-teal-700 hover:to-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 hover:shadow-lg hover:shadow-teal-500/25"
+                >
+                  <BookOpen className="w-5 h-5" />
+                  <span>Start Guided Experiment</span>
+                </Link>
+                <p className="text-gray-400 text-sm mt-2">
+                  Choose from curated science experiments with step-by-step guidance
+                </p>
+              </div>
+              
               {/* Session Status Section */}
               <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
                 <div className="status-indicator">

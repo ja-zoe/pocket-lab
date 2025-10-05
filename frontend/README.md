@@ -1,4 +1,4 @@
-# 🔬 LabLink Frontend
+# 🔬 PocketLab Frontend
 
 A modern React-based dashboard for live sensor data visualization and experiment management.
 
@@ -147,4 +147,4 @@ src/
 
 ## 📄 License
 
-This project is part of the LabLink MVP for educational purposes.
+This project is part of the PocketLab MVP for educational purposes.

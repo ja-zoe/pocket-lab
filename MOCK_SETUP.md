@@ -1,6 +1,6 @@
-# LabLink Mock Backend Setup
+# PocketLab Mock Backend Setup
 
-This setup provides a mock backend server that simulates Supabase data for testing the LabLink frontend without requiring actual Supabase configuration.
+This setup provides a mock backend server that simulates Supabase data for testing the PocketLab frontend without requiring actual Supabase configuration.
 
 ## 🚀 Quick Start
 

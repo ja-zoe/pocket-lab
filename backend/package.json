@@ -1,7 +1,7 @@
 {
   "name": "lablink-backend",
   "version": "1.0.0",
-  "description": "Mock backend for LabLink Frontend",
+  "description": "Mock backend for PocketLab Frontend",
   "main": "server.js",
   "type": "module",
   "scripts": {

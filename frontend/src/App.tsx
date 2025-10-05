@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import HistoryPage from './pages/HistoryPage';
+import ExperimentSelectionPage from './pages/ExperimentSelectionPage';
+import ExperimentRunnerPage from './pages/ExperimentRunnerPage';
 import './App.css';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -30,6 +32,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <HistoryPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/experiments" 
+              element={
+                <ProtectedRoute>
+                  <ExperimentSelectionPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/experiment/:id" 
+              element={
+                <ProtectedRoute>
+                  <ExperimentRunnerPage />
                 </ProtectedRoute>
               } 
             />

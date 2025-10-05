@@ -494,7 +494,7 @@ app.get('/health', (req, res) => {
 // Root route - API information
 app.get('/', (req, res) => {
   res.json({
-    message: 'LabLink Mock Backend API',
+    message: 'PocketLab Mock Backend API',
     version: '1.0.0',
     status: 'running',
     endpoints: {
@@ -626,7 +626,7 @@ wss.on('connection', (ws) => {
 
 // Start server
 server.listen(PORT, () => {
-  console.log(`🚀 Mock LabLink Backend running on http://localhost:${PORT}`);
+  console.log(`🚀 Mock PocketLab Backend running on http://localhost:${PORT}`);
   console.log(`📊 WebSocket server running on ws://localhost:${PORT}`);
   console.log(`🔗 Health check: http://localhost:${PORT}/health`);
   console.log(`📈 Sensor data: http://localhost:${PORT}/api/sensor-data`);

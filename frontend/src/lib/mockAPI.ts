@@ -41,7 +41,7 @@ export const mockAuth = {
     // Mock Google OAuth - just return a test user
     const mockUser = {
       id: 'google-user-1',
-      email: 'test@lablink.com',
+      email: 'test@pocketlab.com',
       name: 'Test User',
       created_at: new Date().toISOString()
     };
@@ -65,7 +65,7 @@ export const mockAuth = {
     if (token) {
       const mockUser = {
         id: '1',
-        email: 'test@lablink.com',
+        email: 'test@pocketlab.com',
         name: 'Test User',
         created_at: new Date().toISOString()
       };

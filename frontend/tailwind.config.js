@@ -47,7 +47,7 @@ export default {
           "4": "hsl(var(--chart-4))",
           "5": "hsl(var(--chart-5))",
         },
-        // Enhanced LabLink colors with design system
+        // Enhanced PocketLab colors with design system
         lab: {
           dark: "#0f172a", // Primary dark background
           "dark-alt": "#1e293b", // Alternative dark background

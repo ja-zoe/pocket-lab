@@ -121,6 +121,7 @@ const DashboardPage: React.FC = () => {
         console.error('Error processing WebSocket data:', error);
       }
     });
+    }
 
     // Cleanup function
     return () => {

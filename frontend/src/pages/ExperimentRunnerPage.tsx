@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { 
   Play, 
   Pause, 
@@ -22,6 +23,43 @@ import { useSimpleSpikeFilter } from '../hooks/useSimpleSpikeFilter';
 import BME688Chart from '../components/BME688Chart';
 import AccelerationCombined from '../components/AccelerationCombined';
 import Gyroscope3D from '../components/Gyroscope3D';
+
+// Function to determine which graphs to show based on experiment type
+const getRequiredGraphs = (experimentId: string) => {
+  const graphConfig = {
+    'temp-pressure-change': {
+      environmental: true,
+      acceleration: false,
+      gyroscope: false,
+      distance: false
+    },
+    'shake-motion-test': {
+      environmental: false,
+      acceleration: true,
+      gyroscope: true,
+      distance: false
+    },
+    'distance-reaction': {
+      environmental: false,
+      acceleration: false,
+      gyroscope: false,
+      distance: true
+    },
+    'environmental-monitoring': {
+      environmental: true,
+      acceleration: false,
+      gyroscope: false,
+      distance: false
+    }
+  };
+  
+  return graphConfig[experimentId as keyof typeof graphConfig] || {
+    environmental: true,
+    acceleration: true,
+    gyroscope: true,
+    distance: true
+  };
+};
 
 interface SensorData {
   timestamp: number;
@@ -70,6 +108,15 @@ const ExperimentRunnerPage: React.FC = () => {
     threshold: 2
   });
 
+  // Transform data for AccelerationCombined component
+  const transformedData = useMemo(() => {
+    return filteredData.map(item => ({
+      ...item,
+      time: item.timestamp,
+      timeString: new Date(item.timestamp).toLocaleTimeString()
+    }));
+  }, [filteredData]);
+
   // Load experiment template
   useEffect(() => {
     if (id) {
@@ -101,7 +148,7 @@ const ExperimentRunnerPage: React.FC = () => {
     };
   }, [isRunning, stepStartTime]);
 
-  // Mock sensor data generation
+  // Mock sensor data generation - only when experiment is running
   useEffect(() => {
     if (isRunning) {
       intervalRef.current = setInterval(() => {
@@ -135,7 +182,7 @@ const ExperimentRunnerPage: React.FC = () => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isRunning]);
+  }, [isRunning]); // Run when isRunning changes
 
   // Check step conditions
   useEffect(() => {
@@ -202,6 +249,7 @@ const ExperimentRunnerPage: React.FC = () => {
     setExperimentStartTime(Date.now());
     setStepStartTime(Date.now());
     setStepElapsedTime(0);
+    // Clear previous data and start fresh
     setSensorData([]);
     setStepData({});
     setCompletedSteps(new Set());
@@ -219,6 +267,7 @@ const ExperimentRunnerPage: React.FC = () => {
 
   const stopExperiment = () => {
     setIsRunning(false);
+    // Clear both intervals when stopping
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
@@ -520,25 +569,81 @@ const ExperimentRunnerPage: React.FC = () => {
 
           {/* Right Column - Data Visualization */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Environmental Data */}
-            <BME688Chart data={filteredData} />
+            {(() => {
+              const requiredGraphs = getRequiredGraphs(id || '');
+              
+              return (
+                <>
+                  {/* Environmental Data */}
+                  {requiredGraphs.environmental && (
+                    <BME688Chart key={`env-${filteredData.length}`} data={filteredData} />
+                  )}
 
-            {/* Motion Data */}
-            <AccelerationCombined data={filteredData} width={600} height={300} />
+                  {/* Motion Data */}
+                  {requiredGraphs.acceleration && (
+                    <AccelerationCombined key={`accel-${transformedData.length}`} data={transformedData} width={600} height={300} />
+                  )}
 
-            {/* Gyroscope 3D */}
-            {filteredData && filteredData.length > 0 && (
-              <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
-                <h3 className="text-lg font-semibold text-white mb-4">3D Gyroscope</h3>
-                <Gyroscope3D
-                  pitch={filteredData[filteredData.length - 1]?.gyroX || 0}
-                  roll={filteredData[filteredData.length - 1]?.gyroZ || 0}
-                  yaw={filteredData[filteredData.length - 1]?.gyroY || 0}
-                  width={600}
-                  height={300}
-                />
-              </div>
-            )}
+                  {/* Gyroscope 3D */}
+                  {requiredGraphs.gyroscope && filteredData && filteredData.length > 0 && (
+                    <div key={`gyro-${filteredData.length}`} className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                      <h3 className="text-lg font-semibold text-white mb-4">3D Gyroscope</h3>
+                      <Gyroscope3D
+                        pitch={filteredData[filteredData.length - 1]?.gyroX || 0}
+                        roll={filteredData[filteredData.length - 1]?.gyroZ || 0}
+                        yaw={filteredData[filteredData.length - 1]?.gyroY || 0}
+                        width={600}
+                        height={300}
+                      />
+                    </div>
+                  )}
+
+                  {/* Distance Chart */}
+                  {requiredGraphs.distance && filteredData && filteredData.length > 0 && (
+                    <div key={`distance-${filteredData.length}`} className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                      <h3 className="text-lg font-semibold text-white mb-4">Distance Measurement</h3>
+                      <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart key={`distance-chart-${filteredData.length}`} data={filteredData}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                            <XAxis 
+                              dataKey="timestamp"
+                              tickFormatter={(value) => new Date(value).toLocaleTimeString()}
+                              stroke="#9CA3AF"
+                              fontSize={12}
+                            />
+                            <YAxis 
+                              label={{ value: 'Distance (m)', angle: -90, position: 'insideLeft' }}
+                              stroke="#9CA3AF"
+                              fontSize={12}
+                              tickFormatter={(value) => value.toFixed(2)}
+                            />
+                            <Tooltip 
+                              labelFormatter={(value) => new Date(value).toLocaleTimeString()}
+                              formatter={(value: number) => [`${value.toFixed(3)} m`, 'Distance']}
+                              contentStyle={{ 
+                                backgroundColor: '#1F2937', 
+                                border: '1px solid #374151',
+                                borderRadius: '8px',
+                                color: '#F9FAFB'
+                              }}
+                            />
+                            <Line 
+                              type="monotone" 
+                              dataKey="distance" 
+                              stroke="#3B82F6" 
+                              strokeWidth={2}
+                              dot={false}
+                              activeDot={{ r: 4, fill: '#3B82F6' }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>

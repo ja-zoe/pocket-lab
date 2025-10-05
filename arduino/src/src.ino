@@ -3,8 +3,9 @@
 #include <ESPSupabase.h>
 #include "secrets.h"
 #include "Sensors.h"
+#include "orientation.h"
 
-const String table = "sensor_readings";
+const char* table = "sensor_readings";
 
 // db init
 Supabase db;
@@ -14,7 +15,7 @@ void setup() {
 
   // Connect Wi-Fi
   Serial.print("Connecting to WiFi");
-  WiFi.begin(ssid, password);
+  WiFi.begin(ssid,password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
@@ -28,11 +29,61 @@ void setup() {
   db.begin(SUPABASE_URL, SUPABASE_KEY);
 }
 
+unsigned long prevTime = 0;
+
 void loop() {
   // Read sensors
   BMP280Data bmpData = readBMP280();
   QMC5883Data qmcData = readQMC5883();
   MPU6050Data mpuData = readMPU6050();
+
+  unsigned long currentTime = millis();
+  float dt = (currentTime - prevTime) / 1000.0; // seconds
+  prevTime = currentTime;
+
+  Orientation o = calculateOrientation(
+    mpuData.ax, mpuData.ay, mpuData.az,
+    mpuData.gx, mpuData.gy, mpuData.gz,
+    qmcData.x, qmcData.y, qmcData.z,
+    dt
+  );
+
+  Serial.print("Pitch: "); Serial.print(o.pitch, 2);
+  Serial.print("° Roll: "); Serial.print(o.roll, 2);
+  Serial.print("° Yaw: "); Serial.println(o.yaw, 2);
+  Serial.println(F("==== Sensor Readings ===="));
+  
+  // BMP280
+  Serial.print(F("BMP280 - Temp: "));
+  Serial.print(bmpData.temperature, 2);
+  Serial.print(" °C, Pressure: ");
+  Serial.print(bmpData.pressure, 2);
+  Serial.println(" hPa");
+
+  // QMC5883
+  Serial.print(F("QMC5883 - X: "));
+  Serial.print(qmcData.x, 3);
+  Serial.print(" Y: ");
+  Serial.print(qmcData.y, 3);
+  Serial.print(" Z: ");
+  Serial.println(qmcData.z, 3);
+
+  // MPU6050
+  Serial.print(F("MPU6050 - Accel X: "));
+  Serial.print(mpuData.ax);
+  Serial.print(" Y: ");
+  Serial.print(mpuData.ay);
+  Serial.print(" Z: ");
+  Serial.println(mpuData.az);
+
+  Serial.print(F("MPU6050 - Gyro X: "));
+  Serial.print(mpuData.gx);
+  Serial.print(" Y: ");
+  Serial.print(mpuData.gy);
+  Serial.print(" Z: ");
+  Serial.println(mpuData.gz);
+
+  Serial.println(F("========================"));
 
   // Build JSON payload for Supabase
   String payload = "{";
@@ -58,7 +109,7 @@ void loop() {
   payload += "}";
 
   // Send data to Supabase
-  int code = db.insert(table, payload, false);
+  int code = db.insert(String(table), payload, false);
   if (code == 200 || code == 201) {
     Serial.println("✅ Sensor data sent successfully");
   } else {
@@ -68,5 +119,6 @@ void loop() {
   // Reset URL query buffer
   db.urlQuery_reset();
 
-  delay(2000); // send every 2 seconds
+  delay(50); // send every 0.5 seconds
 }
+

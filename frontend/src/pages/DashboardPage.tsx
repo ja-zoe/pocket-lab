@@ -312,8 +312,50 @@ const DashboardPage: React.FC = () => {
 
   const exportCSV = async () => {
     try {
-      const csvData = await mockSensorAPI.exportData('csv');
-      const blob = new Blob([csvData], { type: 'text/csv' });
+      if (sensorData.length === 0) {
+        showToastNotification('No data to export', 'error');
+        return;
+      }
+
+      // Convert real sensor data to CSV format
+      const headers = [
+        'timestamp',
+        'temperature',
+        'acceleration_x',
+        'acceleration_y', 
+        'acceleration_z',
+        'gyroscope_pitch',
+        'gyroscope_roll',
+        'gyroscope_yaw',
+        'bme688_temperature',
+        'bme688_humidity',
+        'bme688_pressure',
+        'bme688_voc',
+        'ultrasonic_distance'
+      ];
+
+      const csvRows = sensorData.map(data => [
+        new Date(data.timestamp).toISOString(),
+        data.temperature.toFixed(3),
+        data.acceleration.x.toFixed(3),
+        data.acceleration.y.toFixed(3),
+        data.acceleration.z.toFixed(3),
+        data.gyroscope.pitch.toFixed(3),
+        data.gyroscope.roll.toFixed(3),
+        data.gyroscope.yaw.toFixed(3),
+        data.bme688.temperature.toFixed(3),
+        data.bme688.humidity.toFixed(3),
+        data.bme688.pressure.toFixed(3),
+        data.bme688.voc.toFixed(3),
+        data.ultrasonic.distance.toFixed(3)
+      ]);
+
+      const csvContent = [
+        headers.join(','),
+        ...csvRows.map(row => row.join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

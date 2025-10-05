@@ -73,7 +73,6 @@ const ExperimentRunnerPage: React.FC = () => {
   const [stepElapsedTime, setStepElapsedTime] = useState(0);
   const [experimentStartTime, setExperimentStartTime] = useState<number | null>(null);
   const [sensorData, setSensorData] = useState<SensorData[]>([]);
-  const [currentData, setCurrentData] = useState<SensorData | null>(null);
   const [, setStepData] = useState<{ [stepId: string]: SensorData[] }>({});
   const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
   const [conditionMet, setConditionMet] = useState(false);
@@ -275,7 +274,6 @@ const ExperimentRunnerPage: React.FC = () => {
           });
 
           // Update current data
-          setCurrentData(newData);
           console.log('Updated current data in experiment:', newData);
         }
       } catch (error) {
@@ -656,7 +654,7 @@ const ExperimentRunnerPage: React.FC = () => {
                           No Data - Showing Zero
                         </div>
                       )}
-                      <AccelerationCombined key={`accel-${transformedData.length}`} data={transformedData} width={600} height={300} />
+                      <AccelerationCombined key={`accel-${transformedData.length}`} data={transformedData}  />
                     </div>
                   )}
 

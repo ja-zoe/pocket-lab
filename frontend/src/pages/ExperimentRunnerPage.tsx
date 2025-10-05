@@ -242,6 +242,10 @@ const ExperimentRunnerPage: React.FC = () => {
   // Connect to WebSocket for real-time data or use mock data
   useEffect(() => {
     if (isMockDataEnabled) {
+      // Generate initial data points for realistic graphs
+      const initialData = mockDataService.generateInitialDataPoints(50);
+      setSensorData(initialData);
+      
       // Use mock data service
       mockDataService.enable((data) => {
         console.log('Mock data received in experiment:', data);

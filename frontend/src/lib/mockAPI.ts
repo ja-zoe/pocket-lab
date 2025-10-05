@@ -1,6 +1,7 @@
 // API service to connect to Supabase backend
-const API_BASE_URL = 'http://192.168.1.104:8000';
-const WS_BASE_URL = 'ws://192.168.1.104:8000';
+// Use environment variable or fallback to local network IP
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://192.168.1.104:8000';
+const WS_BASE_URL = import.meta.env.VITE_WS_URL || 'ws://192.168.1.104:8000';
 
 // Real authentication service
 export const authService = {
